@@ -40,12 +40,10 @@ export function useDirectSales() {
       saleDate?: string | null,
     ) => {
       try {
-        let formattedDueDate = dueDate;
-        if (formattedDueDate && formattedDueDate.length === 10) {
-          formattedDueDate = `${formattedDueDate}T12:00:00`;
-        }
+        let formattedDueDate = dueDate ? (dueDate.length === 10 ? `${dueDate}T12:00:00` : dueDate) : null;
+        const formattedSaleDate = saleDate || null;
         
-        await db.saveMultiDirectSale(clientId, status, items, formattedDueDate, saleDate);
+        await db.saveMultiDirectSale(clientId || null, status, items, formattedDueDate, formattedSaleDate);
         await refresh();
         return null;
       } catch (e) {
