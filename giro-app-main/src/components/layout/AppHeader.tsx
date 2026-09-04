@@ -68,5 +68,5 @@ export function AppHeader({ active, onChange, onOpenSettings }: AppHeaderProps) 
         })}
       </nav>
     </header>
-  );
+);
 }
