@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  
+  .dark {
+    color-scheme: dark;
+  }
+}
+
+/* Correção automática de fontes apagadas em modo escuro */
+.dark span[class*="text-slate-"],
+.dark p[class*="text-slate-"],
+.dark div[class*="text-slate-"],
+.dark label[class*="text-slate-"] {
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+.dark span[class*="text-slate-400"],
+.dark p[class*="text-slate-500"],
+.dark span[class*="text-slate-500"] {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4 {
+  color: #f8fafc !important; /* slate-50 */
+}
+/* Remove a barra de rolagem horizontal nativa mantendo a rolagem fluida */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
