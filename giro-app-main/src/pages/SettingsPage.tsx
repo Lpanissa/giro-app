@@ -29,7 +29,19 @@ export function SettingsPage() {
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [lastSyncInfo, setLastSyncInfo] = useState<string | null>(() => localStorage.getItem('giro_last_sync_display'));
+  const [lastSyncInfo, setLastSyncInfo] = useState<string | null>(() => {
+    const saved = localStorage.getItem('giro_last_sync_display');
+    if (!saved) return null;
+    // Se a string salva for no formato ISO antigo, converte para legível, senão exibe como está
+    if (saved.includes('T') && saved.endsWith('Z')) {
+      try {
+        return new Date(saved).toLocaleString('pt-BR');
+      } catch (e) {
+        return saved;
+      }
+    }
+    return saved;
+  });
   
   // Controle de versão e atualização disponível
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -79,6 +91,20 @@ export function SettingsPage() {
       charges: Array.isArray(data.charges) ? data.charges.length : 0,
       clientReceipts: Array.isArray(data.clientReceipts) ? data.clientReceipts.length : 0,
     };
+  };
+
+  const formatSyncDate = (isoOrFormattedString: string) => {
+    if (!isoOrFormattedString) return '';
+    // Se parecer uma data ISO (ex: 2026-09-04T02:39:02.286Z), formata bonitinha
+    if (isoOrFormattedString.includes('T') && (isoOrFormattedString.endsWith('Z') || isoOrFormattedString.includes('+'))) {
+      try {
+        const date = new Date(isoOrFormattedString);
+        return date.toLocaleString('pt-BR');
+      } catch (e) {
+        return isoOrFormattedString;
+      }
+    }
+    return isoOrFormattedString;
   };
 
   const applyRemoteDataToLocal = (remoteData: any, notifyChanges = false) => {
@@ -134,8 +160,9 @@ export function SettingsPage() {
     }
 
     if (remoteData.lastUpdated) {
-      setLastSyncInfo(remoteData.lastUpdated);
-      localStorage.setItem('giro_last_sync_display', remoteData.lastUpdated);
+      const formatted = formatSyncDate(remoteData.lastUpdated);
+      setLastSyncInfo(formatted);
+      localStorage.setItem('giro_last_sync_display', formatted);
     }
 
     if (notifyChanges) {
@@ -245,7 +272,8 @@ export function SettingsPage() {
               return;
             }
 
-            if (remoteData.lastUpdated && remoteData.lastUpdated !== currentDisplay) {
+            const formattedRemoteDate = formatSyncDate(remoteData.lastUpdated);
+            if (formattedRemoteDate && formattedRemoteDate !== currentDisplay) {
               applyRemoteDataToLocal(remoteData, true);
             }
           }
@@ -266,7 +294,6 @@ export function SettingsPage() {
   const handleForceUpdate = async () => {
     notify('Atualizando aplicativo...', 'info');
     try {
-      // Limpa os caches ativos do navegador e service workers para garantir que a versão nova seja baixada do zero
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map((name) => caches.delete(name)));
@@ -425,7 +452,6 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Rodapé com Versão e Aviso de Atualização */}
       <div className="px-4 text-center space-y-2">
         {updateAvailable ? (
           <div className="rounded-2xl bg-amber-50 border border-amber-200/80 p-3.5 flex items-center justify-between text-xs text-amber-800 shadow-sm">
