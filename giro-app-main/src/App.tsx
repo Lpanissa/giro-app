@@ -224,23 +224,26 @@ function App() {
 
       <div className="min-h-screen bg-slate-50 text-slate-800 transition-colors">
 
-        {/* Botão de menu (hambúrguer) - canto superior esquerdo */}
-        <button
-          onClick={() => setMenuOpen(true)}
-          className="fixed top-4 left-4 z-40 rounded-full p-2 text-slate-400 bg-white/90 shadow-sm hover:bg-slate-100 hover:text-slate-600 transition"
-          aria-label="Menu"
-        >
-          <Menu size={20} />
-        </button>
+        {/* Barra superior compacta com menu e configurações */}
+        {!settingsOpen && !menuOpen && (
+          <div className="sticky top-0 z-40 flex items-center justify-between px-3 py-1.5 bg-slate-50/95 backdrop-blur-sm">
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              aria-label="Menu"
+            >
+              <Menu size={16} />
+            </button>
 
-        {/* Botão de configurações - canto superior direito */}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="fixed top-4 right-4 z-40 rounded-full p-2 text-slate-400 bg-white/90 shadow-sm hover:bg-slate-100 hover:text-slate-600 transition"
-          aria-label="Configurações"
-        >
-          <Settings size={20} />
-        </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              aria-label="Configurações"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
+        )}
 
         <AppHeader
           active={activeTab}
@@ -248,7 +251,7 @@ function App() {
         />
 
         {/* título da página */}
-        <main className="mx-auto w-full max-w-md md:max-w-4xl lg:max-w-6xl xl:max-w-7xl px-4 md:px-8 pb-10 pt-2 md:pt-4 transition-all duration-300">
+        <main className="mx-auto w-full max-w-md md:max-w-4xl lg:max-w-6xl xl:max-w-7xl px-4 md:px-8 pb-10 pt-0 md:pt-2 transition-all duration-300">
           {activeTab === 'vendas' && <ProfitPage />}
           {activeTab === 'estoque' && <InventoryPage />}
           {activeTab === 'rotas' && <MapPage />}
@@ -269,7 +272,6 @@ function App() {
                 </button>
               </div>
 
-              {/* Itens de exemplo - troque pelo que quiser */}
               <nav className="space-y-1">
                 <button className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
                   Sobre o app
