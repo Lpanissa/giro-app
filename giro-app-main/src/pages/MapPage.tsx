@@ -31,7 +31,7 @@ export function MapPage() {
     )
   ) as string[];
 
-  const daysOfWeek = ['Todos', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+  const daysOfWeek = ['Todos', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
@@ -303,13 +303,13 @@ export function MapPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none"
                 >
                   <option value="">Nenhum (Sem dia fixo)</option>
-                  <option value="Segunda">Seg</option>
-                  <option value="Terça">Ter</option>
-                  <option value="Quarta">Qua</option>
-                  <option value="Quinta">Qui</option>
-                  <option value="Sexta">Sex</option>
-                  <option value="Sábado">Sáb</option>
-                  <option value="Domingo">Dom</option>
+                  <option value="Segunda">Segunda</option>
+                  <option value="Terça">Terça</option>
+                  <option value="Quarta">Quarta</option>
+                  <option value="Quinta">Quinta</option>
+                  <option value="Sexta">Sexta</option>
+                  <option value="Sábado">Sábado</option>
+                  <option value="Domingo">Domingo</option>
                 </select>
               </div>
 
