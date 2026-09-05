@@ -96,9 +96,9 @@ export function MapPage() {
   if (loading) {
     return <div className="p-4 text-center text-slate-500">Carregando clientes...</div>;
   }
-
+// TELA
   return (
-    <div className="space-y-4 pb-20 pt-4">
+    <div className="space-y-4 pb-20 pt-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Clientes & Rotas</h1>
