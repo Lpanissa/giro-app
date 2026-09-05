@@ -256,9 +256,13 @@ export function ProfitPage() {
     setClientId(''); setClientSearch(''); setStatus('Pago'); setDueDate(''); setItems([{ product_id: '', productSearch: '', showDropdown: false, quantity: '1', manualPrice: '', manualCost: '' }]); setError(null);
     notify('Venda registrada com sucesso', 'success');
   };
-
+// título da página 
   return (
     <div className="space-y-5 overflow-y-auto pt-8 pb-16 pr-1">
+<div>
+  <h1 className="text-2xl font-bold tracking-tight text-slate-900">Vendas</h1>
+  <p className="text-sm text-slate-500">Acompanhe suas vendas e lucros do dia</p>
+</div>
       <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
         <button onClick={goPrevDay} className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
           <ChevronLeft size={20} />
