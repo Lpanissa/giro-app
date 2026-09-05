@@ -229,7 +229,8 @@ function App() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
 
-        <main className="mx-auto w-full max-w-md md:max-w-4xl lg:max-w-6xl xl:max-w-7xl px-4 md:px-8 pb-10 pt-24 md:pt-28 transition-all duration-300">
+// espaçamento superior reduzido pois o painel de controle foi movido pra parte inferior
+        <main className="mx-auto w-full max-w-md md:max-w-4xl lg:max-w-6xl xl:max-w-7xl px-4 md:px-8 pb-10 pt-2 md:pt-4 transition-all duration-300">
           {activeTab === 'vendas' && <ProfitPage />}
           {activeTab === 'estoque' && <InventoryPage />}
           {activeTab === 'rotas' && <MapPage />}
