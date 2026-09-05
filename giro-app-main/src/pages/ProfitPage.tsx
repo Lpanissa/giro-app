@@ -256,7 +256,7 @@ export function ProfitPage() {
     setClientId(''); setClientSearch(''); setStatus('Pago'); setDueDate(''); setItems([{ product_id: '', productSearch: '', showDropdown: false, quantity: '1', manualPrice: '', manualCost: '' }]); setError(null);
     notify('Venda registrada com sucesso', 'success');
   };
-// título da página 
+// TÍTULO DA PÁGINA
   return (
     <div className="space-y-5 overflow-y-auto pt-8 pb-16 pr-1">
 <div>
@@ -394,10 +394,10 @@ export function ProfitPage() {
         </div>
       </div>
 
-      {/* Botão Flutuante (FAB) fixo padrão no canto inferior direito */}
+      {/* - - - - - BOTÃO FLUTUANTE------ (FAB) */}
       <button 
         onClick={() => { setError(null); setClientId(''); setClientSearch(''); setSheetOpen(true); }}
-        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-500/40 transition hover:bg-emerald-600 active:scale-95"
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-500/40 transition hover:bg-emerald-600 active:scale-95"
         title="Registrar Venda"
       >
         <Plus size={26} />
