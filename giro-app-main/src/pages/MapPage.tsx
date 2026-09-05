@@ -123,7 +123,7 @@ export function MapPage() {
         ))}
       </div>
 
-      {/* Barra de Pesquisa */}
+      {/* BARRA DE PESQUISA */}
       <div className="relative">
         <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input 
@@ -135,7 +135,7 @@ export function MapPage() {
         />
       </div>
 
-      {/* Lista de Clientes */}
+      {/* LISTA DE CLIENTES */}
       <div className="space-y-3">
         <div className="text-xs font-medium text-slate-500 px-1">
           Clientes ({filteredCustomers.length})
@@ -199,10 +199,10 @@ export function MapPage() {
         )}
       </div>
 
-      {/* Botão Flutuante (FAB) */}
+      {/* BOTÃO FLUTUANTE (FAB) */}
       <button 
         onClick={handleOpenAddModal}
-        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/40 transition hover:bg-blue-700 active:scale-95"
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/40 transition hover:bg-blue-700 active:scale-95"
         title="Novo Cliente"
       >
         <Plus size={26} />
