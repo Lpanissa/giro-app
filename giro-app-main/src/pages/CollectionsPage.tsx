@@ -124,9 +124,14 @@ export function CollectionsPage() {
     setPaymentType('total');
     setPartialValue('');
   };
-
+// Título do cabeçalho
   return (
     <div className="space-y-5 pt-8">
+  <div>
+    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Cobranças</h1>
+    <p className="text-sm text-slate-500">Controle os pagamentos pendentes dos clientes</p>
+  </div>
+    ...
       <div className="rounded-3xl bg-amber-500 px-5 py-6 shadow-lg shadow-amber-500/25">
         <div className="flex items-center gap-1.5 text-amber-50">
           <AlertCircle size={14} />
