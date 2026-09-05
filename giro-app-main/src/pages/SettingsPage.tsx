@@ -35,7 +35,9 @@ export function SettingsPage() {
     // Se a string salva for no formato ISO antigo, converte para legível, senão exibe como está
     if (saved.includes('T') && saved.endsWith('Z')) {
       try {
-        return new Date(saved).toLocaleString('pt-BR');
+        const formatted = new Date(saved).toLocaleString('pt-BR');
+        localStorage.setItem('giro_last_sync_display', formatted);
+        return formatted;
       } catch (e) {
         return saved;
       }
@@ -250,6 +252,12 @@ export function SettingsPage() {
     let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      // Cancela o listener anterior antes de criar outro, evitando duplicidade
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
       setUser(currentUser);
       if (currentUser) {
         await pullDataFromFirebase(currentUser.uid);
