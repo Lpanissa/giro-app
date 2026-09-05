@@ -349,10 +349,10 @@ export function InventoryPage() {
         )}
       </div>
 
-      {/* Botão Flutuante (FAB) fixo no canto inferior direito para adicionar produtos */}
+      {/* BOTÃO FLUTUANTE (FAB) */}
       <button 
         onClick={handleOpenAddModal}
-        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-rose-500 text-white shadow-xl shadow-rose-500/40 transition hover:bg-rose-600 active:scale-95"
+        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-rose-500 text-white shadow-xl shadow-rose-500/40 transition hover:bg-rose-600 active:scale-95"
         title="Adicionar Produto"
       >
         <Plus size={26} />
