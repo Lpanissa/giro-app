@@ -1,6 +1,6 @@
 import { Route, Package, CircleDollarSign, HandCoins, Settings, LucideIcon } from 'lucide-react';
 
-export type TabKey = 'rotas' | 'estoque' | 'vendas' | 'cobrancas';
+export type TabKey = 'rotas' | 'estoque' | 'vendas' | 'cobrancas'|'notas' ;
 
 interface TabDefinition {
   key: TabKey;
