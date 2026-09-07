@@ -126,7 +126,7 @@ export function CollectionsPage() {
   };
 // Título do cabeçalho
   return (
-    <div className="space-y-5 pt-8">
+    <div className="space-y-5 pt-2">
   <div>
     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Cobranças</h1>
     <p className="text-sm text-slate-500">Controle os pagamentos pendentes dos clientes</p>
