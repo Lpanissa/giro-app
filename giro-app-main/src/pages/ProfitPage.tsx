@@ -29,6 +29,21 @@ function formatPaidAtShort(iso: string | null | undefined): string {
   return `${d.getDate()}/${MONTHS_SHORT[d.getMonth()]}`;
 }
 
+// Converte o texto digitado (ex: "2508") em formato de dinheiro (ex: "25,08"), inserindo a vírgula automaticamente
+function formatMoneyInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  const intPart = digits.slice(0, -2) || '0';
+  const cents = digits.slice(-2).padStart(2, '0');
+  return `${parseInt(intPart, 10)},${cents}`;
+}
+
+// Converte o texto já formatado (ex: "25,08") de volta para número (25.08)
+function parseMoneyInput(value: string): number {
+  if (!value) return 0;
+  return parseFloat(value.replace(',', '.')) || 0;
+}
+
 interface SaleFormItem {
   product_id: string;
   productSearch?: string;
@@ -170,7 +185,7 @@ export function ProfitPage() {
     return items.reduce((sum, item) => {
       const product = products.find((p) => p.id === item.product_id);
       if (!product) return sum;
-      const unitPrice = product.price === 0 ? parseFloat(item.manualPrice ?? '') || 0 : product.price;
+      const unitPrice = product.price === 0 ? parseMoneyInput(item.manualPrice ?? '') : product.price;
       return sum + unitPrice * (parseInt(item.quantity, 10) || 0);
     }, 0);
   }, [items, products]);
@@ -189,12 +204,8 @@ export function ProfitPage() {
       if ((parseInt(item.quantity, 10) || 0) <= 0) { setError('Quantidade inválida'); return; }
       const product = products.find((p) => p.id === item.product_id);
       if (product && product.price === 0) {
-        if (!(parseFloat(item.manualPrice ?? '') > 0)) {
+        if (!(parseMoneyInput(item.manualPrice ?? '') > 0)) {
           setError(`Informe o valor de venda para "${product.name}"`);
-          return;
-        }
-        if (item.manualCost !== '' && isNaN(parseFloat(item.manualCost ?? ''))) {
-          setError(`Custo inválido para "${product.name}"`);
           return;
         }
       }
@@ -232,8 +243,8 @@ export function ProfitPage() {
 
     const saleItems: NewDirectSaleItem[] = validItems.map((item) => {
       const product = products.find((p) => p.id === item.product_id)!;
-      const unitPrice = product.price === 0 ? (parseFloat(item.manualPrice ?? '') || 0) : product.price;
-      const unitCost = product.price === 0 ? (parseFloat(item.manualCost ?? '') || 0) : product.cost;
+      const unitPrice = product.price === 0 ? parseMoneyInput(item.manualPrice ?? '') : product.price;
+      const unitCost = product.price === 0 ? parseMoneyInput(item.manualCost ?? '') : product.cost;
       return { product_id: product.id, quantity: parseInt(item.quantity, 10), unit_cost: unitCost, unit_price: unitPrice };
     });
 
@@ -572,28 +583,24 @@ export function ProfitPage() {
                         <div className="relative">
                           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">R$</span>
                           <input
-                            type="number"
+                            type="text"
                             autoComplete="off"
-                            inputMode="decimal"
-                            step="0.01"
-                            min="0"
+                            inputMode="numeric"
                             placeholder="Custo do produto"
                             value={item.manualCost ?? ''}
-                            onChange={(e) => handleItemFieldChange(index, 'manualCost', e.target.value)}
+                            onChange={(e) => handleItemFieldChange(index, 'manualCost', formatMoneyInput(e.target.value))}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-800 transition focus:border-slate-300 focus:bg-white"
                           />
                         </div>
                         <div className="relative">
                           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">R$</span>
                           <input
-                            type="number"
+                            type="text"
                             autoComplete="off"
-                            inputMode="decimal"
-                            step="0.01"
-                            min="0"
+                            inputMode="numeric"
                             placeholder="Valor da venda"
                             value={item.manualPrice ?? ''}
-                            onChange={(e) => handleItemFieldChange(index, 'manualPrice', e.target.value)}
+                            onChange={(e) => handleItemFieldChange(index, 'manualPrice', formatMoneyInput(e.target.value))}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-sm text-slate-800 transition focus:border-slate-300 focus:bg-white"
                           />
                         </div>
