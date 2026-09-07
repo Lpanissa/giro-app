@@ -34,8 +34,6 @@ interface SaleFormItem {
   productSearch?: string;
   showDropdown?: boolean;
   quantity: string;
-  // Preço e custo manuais usados apenas quando o produto selecionado tem valor R$ 0,00 no estoque
-  // (preço "flexível"). Nunca são salvos no cadastro do produto, só usados nesta venda.
   manualPrice?: string;
   manualCost?: string;
 }
@@ -120,7 +118,6 @@ export function ProfitPage() {
     [daySalesList],
   );
 
-  // Calcula o total pendente de TODAS as vendas do sistema (não zera ao virar o mês, fica pendente até dar baixa)
   const pendingTotal = useMemo(
     () => sales.filter((s) => s.status === 'Pendente').reduce((sum, s) => sum + s.unit_price * s.quantity, 0),
     [sales],
@@ -173,7 +170,6 @@ export function ProfitPage() {
     return items.reduce((sum, item) => {
       const product = products.find((p) => p.id === item.product_id);
       if (!product) return sum;
-      // Se o produto tem preço R$ 0,00 no estoque (preço flexível), usa o valor digitado manualmente para esta venda
       const unitPrice = product.price === 0 ? parseFloat(item.manualPrice ?? '') || 0 : product.price;
       return sum + unitPrice * (parseInt(item.quantity, 10) || 0);
     }, 0);
@@ -186,7 +182,7 @@ export function ProfitPage() {
     setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     const validItems = items.filter((i) => i.product_id);
     if (validItems.length === 0) { setError('Adicione ao menos um produto válido'); return; }
     for (const item of validItems) {
@@ -236,14 +232,12 @@ export function ProfitPage() {
 
     const saleItems: NewDirectSaleItem[] = validItems.map((item) => {
       const product = products.find((p) => p.id === item.product_id)!;
-      // Produto com preço R$ 0,00 no estoque usa o valor e custo digitados manualmente apenas nesta venda,
-      // sem alterar o cadastro original do produto
       const unitPrice = product.price === 0 ? (parseFloat(item.manualPrice ?? '') || 0) : product.price;
       const unitCost = product.price === 0 ? (parseFloat(item.manualCost ?? '') || 0) : product.cost;
       return { product_id: product.id, quantity: parseInt(item.quantity, 10), unit_cost: unitCost, unit_price: unitPrice };
     });
 
-    const err = registerMultiSale(
+    const err = await registerMultiSale(
       finalClientId || null, 
       status, 
       saleItems, 
@@ -256,13 +250,9 @@ export function ProfitPage() {
     setClientId(''); setClientSearch(''); setStatus('Pago'); setDueDate(''); setItems([{ product_id: '', productSearch: '', showDropdown: false, quantity: '1', manualPrice: '', manualCost: '' }]); setError(null);
     notify('Venda registrada com sucesso', 'success');
   };
-// TÍTULO DA PÁGINA
+
   return (
-    <div className="space-y-5 overflow-y-auto pt-2 pb-16 pr-1">
-<div>
-  <h1 className="text-2xl font-bold tracking-tight text-slate-900">Vendas</h1>
-  <p className="text-sm text-slate-500">Acompanhe suas vendas e lucros do dia</p>
-</div>
+    <div className="space-y-5 overflow-y-auto pt-8 pb-16 pr-1">
       <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
         <button onClick={goPrevDay} className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
           <ChevronLeft size={20} />
@@ -394,16 +384,14 @@ export function ProfitPage() {
         </div>
       </div>
 
-      {/* - - - - - BOTÃO FLUTUANTE------ (FAB) */}
       <button 
         onClick={() => { setError(null); setClientId(''); setClientSearch(''); setSheetOpen(true); }}
-        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-500/40 transition hover:bg-emerald-600 active:scale-95"
+        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-500/40 transition hover:bg-emerald-600 active:scale-95"
         title="Registrar Venda"
       >
         <Plus size={26} />
       </button>
 
-      {/* Sheet com altura dinâmica ajustada perfeitamente ao teclado */}
       <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Nova venda">
         <div className="space-y-4 overflow-y-auto px-1 pb-6 max-h-[calc(100vh-220px)]">
           {error && <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{error}</div>}
@@ -666,8 +654,8 @@ export function ProfitPage() {
           clients={clients}
           products={products}
           onClose={() => setEditingSale(null)}
-          onUpdate={(txId, updates) => {
-            const err = updateTransaction(txId, updates);
+          onUpdate={async (txId, updates) => {
+            const err = await updateTransaction(txId, updates);
             if (err) notify(err, 'error');
             else notify('Venda atualizada', 'success');
             setEditingSale(null);
@@ -681,12 +669,12 @@ export function ProfitPage() {
         title="Excluir este produto?"
         message="O item será removido da venda e voltará ao estoque."
         confirmLabel="Excluir"
-        onConfirm={() => {
+        onConfirm={async () => {
           const saleId = deleteSaleId;
           setDeleteSaleId(null);
           setEditingSale(null);
           if (!saleId) return;
-          const err = deleteSale(saleId);
+          const err = await deleteSale(saleId);
           if (err) notify(err, 'error');
           else notify('Item excluído', 'success');
         }}
@@ -698,9 +686,9 @@ export function ProfitPage() {
         title="Excluir venda?"
         message="A venda será removida e os itens voltarão ao estoque."
         confirmLabel="Excluir"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteTxId) {
-            const err = deleteTransaction(deleteTxId);
+            const err = await deleteTransaction(deleteTxId);
             if (err) notify(err, 'error');
             else notify('Venda excluída', 'success');
           }
