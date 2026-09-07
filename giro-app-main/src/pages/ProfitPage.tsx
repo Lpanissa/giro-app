@@ -258,7 +258,7 @@ export function ProfitPage() {
   };
 // TÍTULO DA PÁGINA
   return (
-    <div className="space-y-5 overflow-y-auto pt-4 pb-16 pr-1">
+    <div className="space-y-5 overflow-y-auto pt-2 pb-16 pr-1">
 <div>
   <h1 className="text-2xl font-bold tracking-tight text-slate-900">Vendas</h1>
   <p className="text-sm text-slate-500">Acompanhe suas vendas e lucros do dia</p>
