@@ -263,8 +263,7 @@ export function ProfitPage() {
   };
 
   return (
-    <div className="spac-y5 overflow-y-auto pt-2 pb-16 pr-1">
-    </div>
+   <div className="space-y-5 overflow-y-auto pt-2 pb-16 pr-1">
   <h1 className="text-2xl font-bold text-slate-900">Vendas & Lucro</h1>
   <p className="text-sm text-slate-500">Acompanhe o desempenho diário</p>
 </div>
