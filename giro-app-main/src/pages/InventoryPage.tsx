@@ -1,4 +1,3 @@
-```tsx
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
