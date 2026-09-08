@@ -273,8 +273,14 @@ export function CollectionsPage() {
 
       {/* Modal customizado para escolher entre Valor Total ou Parcial */}
       {selectedGroup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedGroup(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-800">Registrar Recebimento</h3>
               <button 
