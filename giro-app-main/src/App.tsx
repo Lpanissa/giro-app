@@ -274,7 +274,7 @@ function App() {
 
               <nav className="space-y-1">
                 <button className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
-                  Sobre o app
+                  Conta
                 </button>
                 <button className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
                   Ajuda
