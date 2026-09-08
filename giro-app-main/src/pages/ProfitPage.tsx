@@ -29,7 +29,7 @@ function formatPaidAtShort(iso: string | null | undefined): string {
   return `${d.getDate()}/${MONTHS_SHORT[d.getMonth()]}`;
 }
 
-// Converte o texto digitado (ex: "2508") em formato de dinheiro (ex: "25,08"), inserindo a vírgula automaticamente
+// Converte o texto digitado inserindo a vírgula automaticamente
 function formatMoneyInput(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (!digits) return '';
