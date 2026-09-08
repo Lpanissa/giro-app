@@ -264,10 +264,6 @@ export function ProfitPage() {
 
   return (
    <div className="space-y-5 overflow-y-auto pt-2 pb-16 pr-1">
-  <div>
-    <h1 className="text-2xl font-bold text-slate-900">Vendas & Lucro</h1>
-    <p className="text-sm text-slate-500">Acompanhe o desempenho diário</p>
-  </div>
 </div>
       <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
         <button onClick={goPrevDay} className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
