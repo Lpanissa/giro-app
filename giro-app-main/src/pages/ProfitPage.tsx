@@ -1,4 +1,3 @@
-```tsx
 import { useMemo, useState } from 'react';
 import { Plus, CircleDollarSign, ShoppingBag, X, Pencil, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, TrendingUp, Search } from 'lucide-react';
 import { useDirectSales, type NewDirectSaleItem } from '@/hooks/useDirectSales';
