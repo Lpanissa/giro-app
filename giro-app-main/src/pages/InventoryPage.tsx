@@ -209,7 +209,7 @@ export function InventoryPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 pt-2">Estoque</h1>
-          <p className="text-sm text-slate-500">{products.length} Produtos cadastrados e serviços</p>
+          <p className="text-sm text-slate-500">{products.length} produtos cadastrados</p>
         </div>
       </div>
 
