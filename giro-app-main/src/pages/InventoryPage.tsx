@@ -1,3 +1,4 @@
+```tsx
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -39,9 +40,7 @@ export function InventoryPage() {
   const [image, setImage] = useState<string | undefined>(undefined);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
 
-  // Estados para controlar o menu de seleção de foto (Câmera ou Galeria)
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
-  // Estado para controlar a ampliação da imagem do produto
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -54,7 +53,6 @@ export function InventoryPage() {
   const categories = ['Todas', ...Array.from(new Set(products.map(p => p.category?.trim() || 'Geral')))];
   const uniqueCategories = Array.from(new Set(products.map(p => p.category?.trim()).filter(Boolean))) as string[];
 
-  // Produtos que têm alerta de estoque (Apenas os com estoque mínimo estipulado > 0)
   const lowStockProducts = products.filter(
     (p) => (p.minQuantity ?? 0) > 0 && p.quantity <= (p.minQuantity ?? 0)
   );
@@ -84,6 +82,7 @@ export function InventoryPage() {
     setEditingProduct(null);
     setName('');
     setCategory('');
+    setShowCategorySuggestions(false);
     setQuantity('');
     setMinQuantity('0');
     setCost('');
@@ -96,6 +95,7 @@ export function InventoryPage() {
     setEditingProduct(product);
     setName(product.name);
     setCategory(product.category || '');
+    setShowCategorySuggestions(false);
     setQuantity(product.quantity.toString());
     setMinQuantity((product.minQuantity ?? 0).toString());
     setCost(product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -193,7 +193,6 @@ export function InventoryPage() {
     setAddQuantityValue('');
   };
 
-  // Cálculo do lucro real e da porcentagem baseados no custo e venda
   const currentCostNum = parseCurrencyToNumber(cost);
   const currentPriceNum = parseCurrencyToNumber(price);
   const profitValue = currentPriceNum - currentCostNum;
@@ -349,7 +348,6 @@ export function InventoryPage() {
         )}
       </div>
 
-      {/* BOTÃO FLUTUANTE (FAB) */}
       <button 
         onClick={handleOpenAddModal}
         className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-rose-500 text-white shadow-xl shadow-rose-500/40 transition hover:bg-rose-600 active:scale-95"
@@ -358,7 +356,6 @@ export function InventoryPage() {
         <Plus size={26} />
       </button>
 
-      {/* Modal para ampliar a imagem */}
       {zoomedImage && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs animate-in fade-in duration-200"
@@ -377,7 +374,10 @@ export function InventoryPage() {
       )}
 
       {productToAddStock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setProductToAddStock(null)}
+        >
           <div 
             className="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 text-slate-800 shadow-xl"
             onClick={(e) => e.stopPropagation()}
@@ -426,7 +426,10 @@ export function InventoryPage() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setIsModalOpen(false)}
+        >
           <div 
             className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 text-slate-800 shadow-xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -475,7 +478,6 @@ export function InventoryPage() {
                   )}
                 </div>
 
-                {/* Exibição do Lucro Real e da Porcentagem ao lado da foto */}
                 {currentCostNum > 0 && currentPriceNum > 0 && (
                   <div className="flex flex-col justify-center">
                     <span className="text-[11px] font-medium text-slate-500">Lucro estimado:</span>
@@ -490,8 +492,14 @@ export function InventoryPage() {
               </div>
 
               {showPhotoOptions && (
-                <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150">
-                  <div className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-2xl space-y-2">
+                <div
+                  className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150"
+                  onClick={() => setShowPhotoOptions(false)}
+                >
+                  <div
+                    className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-2xl space-y-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <p className="text-xs font-semibold text-slate-700 text-center mb-3">Escolha a origem da foto:</p>
                     <button
                       type="button"
@@ -658,3 +666,4 @@ export function InventoryPage() {
     </div>
   );
 }
+```
