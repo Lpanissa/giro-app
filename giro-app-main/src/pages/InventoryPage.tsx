@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { getProducts, saveProduct, updateProduct, deleteProduct, adjustProductQuantity } from '@/lib/storage';
+import { useProducts } from '@/hooks/useProducts';
 
 interface Product {
   id: string;
@@ -15,18 +15,9 @@ interface Product {
 }
 
 export function InventoryPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products, createProduct, updateProduct: updateProductInDb, deleteProduct: deleteProductInDb, adjustQuantity } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
-
-  const loadProducts = () => {
-    const loaded = getProducts() as unknown as Product[];
-    setProducts(loaded);
-  };
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -38,6 +29,7 @@ export function InventoryPage() {
   const [price, setPrice] = useState('');
   const [image, setImage] = useState<string | undefined>(undefined);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -49,8 +41,8 @@ export function InventoryPage() {
   const fileInputGalleryRef = useRef<HTMLInputElement>(null);
   const fileInputCameraRef = useRef<HTMLInputElement>(null);
 
-  const categories = ['Todas', ...Array.from(new Set(products.map(p => p.category?.trim() || 'Geral')))];
-  const uniqueCategories = Array.from(new Set(products.map(p => p.category?.trim()).filter(Boolean))) as string[];
+  const categories = ['Todas', ...Array.from(new Set(products.map((p) => p.category?.trim() || 'Geral')))];
+  const uniqueCategories = Array.from(new Set(products.map((p) => p.category?.trim()).filter(Boolean))) as string[];
 
   const lowStockProducts = products.filter(
     (p) => (p.minQuantity ?? 0) > 0 && p.quantity <= (p.minQuantity ?? 0)
@@ -87,6 +79,7 @@ export function InventoryPage() {
     setCost('');
     setPrice('');
     setImage(undefined);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -100,6 +93,7 @@ export function InventoryPage() {
     setCost(product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     setPrice(product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     setImage(product.image);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -147,7 +141,7 @@ export function InventoryPage() {
     }
   };
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -161,32 +155,32 @@ export function InventoryPage() {
       image,
     };
 
-    if (editingProduct) {
-      updateProduct(editingProduct.id, payload);
-    } else {
-      saveProduct(payload);
+    const err = editingProduct
+      ? await updateProductInDb(editingProduct.id, payload)
+      : await createProduct(payload);
+
+    if (err) {
+      setFormError(err);
+      return;
     }
 
-    loadProducts();
     setIsModalOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (productToDelete) {
-      deleteProduct(productToDelete.id);
-      loadProducts();
+      await deleteProductInDb(productToDelete.id);
       setProductToDelete(null);
     }
   };
 
-  const handleConfirmAddStock = (e: React.FormEvent) => {
+  const handleConfirmAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productToAddStock) return;
     const amount = Number(addQuantityValue);
     if (!amount || amount <= 0) return;
 
-    adjustProductQuantity(productToAddStock.id, amount);
-    loadProducts();
+    await adjustQuantity(productToAddStock.id, amount);
 
     setProductToAddStock(null);
     setAddQuantityValue('');
@@ -446,6 +440,10 @@ export function InventoryPage() {
             </div>
 
             <form onSubmit={handleSaveProduct} className="space-y-4 pt-4">
+              {formError && (
+                <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{formError}</div>
+              )}
+
               <div className="flex items-center justify-center gap-4">
                 <input 
                   type="file" 
