@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-512.png', 'icon-192.png', 'apple-touch-icon-180.png', 'favicon-32.png', 'icon.svg'],
       manifest: {
-        name: 'Yakult',
-        short_name: 'Yakult',
-        description: 'Controle financeiro, de estoque e rotas de vendas de um distribuidor Yakult.',
+        name: 'Giro',
+        short_name: 'Giro',
+        description: 'Controle financeiro, de estoque e rotas de vendas.',
         theme_color: '#F5E6D3',
         background_color: '#F5E6D3',
         display: 'standalone',
