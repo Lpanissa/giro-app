@@ -3,7 +3,6 @@ import { Plus, CircleDollarSign, ShoppingBag, X, Pencil, ChevronLeft, ChevronRig
 import { useDirectSales, type NewDirectSaleItem } from '@/hooks/useDirectSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useClients } from '@/hooks/useClients';
-import * as db from '@/lib/storage';
 import { useToast } from '@/components/common/Toast';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -29,7 +28,6 @@ function formatPaidAtShort(iso: string | null | undefined): string {
   return `${d.getDate()}/${MONTHS_SHORT[d.getMonth()]}`;
 }
 
-// Converte o texto digitado inserindo a vírgula automaticamente
 function formatMoneyInput(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (!digits) return '';
@@ -38,7 +36,6 @@ function formatMoneyInput(raw: string): string {
   return `${parseInt(intPart, 10)},${cents}`;
 }
 
-// Converte o texto já formatado (ex: "25,08") de volta para número (25.08)
 function parseMoneyInput(value: string): number {
   if (!value) return 0;
   return parseFloat(value.replace(',', '.')) || 0;
@@ -219,24 +216,21 @@ export function ProfitPage() {
       if (existing) {
         finalClientId = existing.id;
       } else {
-        const errCreate = createClient({
+        const { id: newClientId, error: errCreate } = await createClient({
           name: trimmedSearch,
-          day_of_week: '', 
+          day_of_week: '',
           phone: '',
           address: '',
           observations: '',
         });
 
-        if (!errCreate) {
-          try {
-            const allClients = db.getClients();
-            const newlyCreated = allClients.find(c => c.name === trimmedSearch);
-            if (newlyCreated) {
-              finalClientId = newlyCreated.id;
-            }
-          } catch (e) {
-            console.error('Erro ao resgatar ID do novo cliente', e);
-          }
+        if (errCreate) {
+          setError(errCreate);
+          notify(errCreate, 'error');
+          return;
+        }
+        if (newClientId) {
+          finalClientId = newClientId;
         }
       }
     }
@@ -734,6 +728,7 @@ function EditSaleSheet({
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [status, setStatus] = useState<SaleStatus>(group.status);
   const [dueDate, setDueDate] = useState(group.dueDate ?? '');
+  const [savingError, setSavingError] = useState<string | null>(null);
   const localSales = group.sales;
 
   const filteredClients = useMemo(() => {
@@ -744,6 +739,8 @@ function EditSaleSheet({
   return (
     <Sheet open onClose={onClose} title="Editar venda">
       <div className="space-y-4 max-h-[calc(100vh-220px)] overflow-y-auto px-1 pb-6">
+        {savingError && <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{savingError}</div>}
+
         <div className="relative">
           <label className="mb-1 block text-xs font-medium text-slate-500">Cliente</label>
           <div className="relative">
@@ -839,7 +836,8 @@ function EditSaleSheet({
         )}
 
         <button
-          onClick={() => {
+          onClick={async () => {
+            setSavingError(null);
             let finalClientId = clientId;
             const trimmedSearch = clientSearch.trim();
 
@@ -848,7 +846,7 @@ function EditSaleSheet({
               if (existing) {
                 finalClientId = existing.id;
               } else {
-                const errCreate = createClient({
+                const { id: newClientId, error: errCreate } = await createClient({
                   name: trimmedSearch,
                   day_of_week: '',
                   phone: '',
@@ -856,16 +854,12 @@ function EditSaleSheet({
                   observations: '',
                 });
 
-                if (!errCreate) {
-                  try {
-                    const allClients = db.getClients();
-                    const newlyCreated = allClients.find((c) => c.name === trimmedSearch);
-                    if (newlyCreated) {
-                      finalClientId = newlyCreated.id;
-                    }
-                  } catch (e) {
-                    console.error('Erro ao resgatar ID do novo cliente', e);
-                  }
+                if (errCreate) {
+                  setSavingError(errCreate);
+                  return;
+                }
+                if (newClientId) {
+                  finalClientId = newClientId;
                 }
               }
             }
