@@ -1,86 +1,61 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as db from '@/lib/storage';
+import { useAuth } from '@/lib/useAuth';
 import type { Client } from '@/types';
 
-const CLIENTS_CHANGED_EVENT = 'app:clients_changed';
-
 export function useClients() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(() => {
-    setLoading(true);
-    try {
-      setClients(db.getClients());
-      setError(null);
-    } catch (e) {
-      console.error('[useClients] refresh:', e);
-      setError('Erro ao carregar clientes');
+  useEffect(() => {
+    if (!user) {
+      setClients([]);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    setLoading(true);
+    const unsubscribe = db.subscribeClients((list) => {
+      setClients(list);
+      setLoading(false);
+      setError(null);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Retorna o ID do novo cliente em caso de sucesso, ou uma mensagem de erro
+  const createClient = useCallback(async (input: Omit<Client, 'id' | 'created_at'>): Promise<{ id: string | null; error: string | null }> => {
+    try {
+      const id = await db.saveClient(input);
+      return { id, error: null };
+    } catch (e) {
+      console.error('[useClients] create:', e);
+      return { id: null, error: 'Erro ao salvar cliente' };
+    }
   }, []);
 
-  useEffect(() => {
-    refresh();
+  const editClient = useCallback(async (id: string, input: Partial<Omit<Client, 'id' | 'created_at'>>) => {
+    try {
+      await db.updateClient(id, input);
+      return null;
+    } catch (e) {
+      console.error('[useClients] update:', e);
+      return 'Erro ao atualizar cliente';
+    }
+  }, []);
 
-    // Escuta mudanças feitas por qualquer outra aba ou componente
-    const handleClientsChange = () => refresh();
-    window.addEventListener(CLIENTS_CHANGED_EVENT, handleClientsChange);
+  const deleteClient = useCallback(async (id: string) => {
+    try {
+      await db.deleteClient(id);
+      return null;
+    } catch (e) {
+      console.error('[useClients] delete:', e);
+      return 'Erro ao excluir cliente';
+    }
+  }, []);
 
-    return () => {
-      window.removeEventListener(CLIENTS_CHANGED_EVENT, handleClientsChange);
-    };
-  }, [refresh]);
-
-  const notifyChange = () => {
-    window.dispatchEvent(new Event(CLIENTS_CHANGED_EVENT));
-  };
-
-  const createClient = useCallback(
-    (input: Omit<Client, 'id' | 'created_at'>) => {
-      try {
-        db.saveClient(input);
-        refresh();
-        notifyChange(); // Notifica a aba de Rotas para atualizar na hora
-        return null;
-      } catch (e) {
-        console.error('[useClients] create:', e);
-        return 'Erro ao salvar cliente';
-      }
-    },
-    [refresh],
-  );
-
-  const editClient = useCallback(
-    (id: string, input: Partial<Omit<Client, 'id' | 'created_at'>>) => {
-      try {
-        db.updateClient(id, input);
-        refresh();
-        notifyChange();
-        return null;
-      } catch (e) {
-        console.error('[useClients] update:', e);
-        return 'Erro ao atualizar cliente';
-      }
-    },
-    [refresh],
-  );
-
-  const deleteClient = useCallback(
-    (id: string) => {
-      try {
-        db.deleteClient(id);
-        refresh();
-        notifyChange();
-        return null;
-      } catch (e) {
-        console.error('[useClients] delete:', e);
-        return 'Erro ao excluir cliente';
-      }
-    },
-    [refresh],
-  );
-
-  return { clients, loading, error, refresh, createClient, editClient, deleteClient };
+  return { clients, loading, error, createClient, editClient, deleteClient };
 }
