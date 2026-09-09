@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAw8tzRbxHT5qxaVILwd9ZJPVLCxYxm0pE",
@@ -17,5 +17,9 @@ const app = initializeApp(firebaseConfig);
 
 // Exporta os serviços de Autenticação e Banco de Dados (Firestore)
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// ignoreUndefinedProperties: evita que o Firestore rejeite a escrita quando
+// um campo (ex: image) vier como "undefined" em vez de omitido ou null
+export const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
+
 export const googleProvider = new GoogleAuthProvider();
