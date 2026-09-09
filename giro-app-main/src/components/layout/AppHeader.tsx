@@ -28,7 +28,7 @@ export function AppHeader({ active, onChange, onOpenSettings }: AppHeaderProps) 
     <header className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-sm border-t border-slate-100 transition-colors pb-safe">
       <div className="mx-auto flex max-w-md items-center justify-between px-3 pt-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 py-0.5">
-          Painel de Controle
+          {/*Painel de Controle*/}
         </span>
         {onOpenSettings && (
           <button
