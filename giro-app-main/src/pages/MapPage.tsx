@@ -17,11 +17,11 @@ export function MapPage() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [routeDay, setRouteDay] = useState(''); 
+  const [formError, setFormError] = useState<string | null>(null);
   
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
 
-  // Sugestões de endereço baseadas na lista global de clientes (removendo números para sugerir apenas a rua/avenida)
   const uniqueStreets = Array.from(
     new Set(
       clients
@@ -39,6 +39,7 @@ export function MapPage() {
     setPhone('');
     setAddress('');
     setRouteDay('');
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -48,10 +49,11 @@ export function MapPage() {
     setPhone(customer.phone || '');
     setAddress(customer.address || '');
     setRouteDay(customer.day_of_week || (customer as any).routeDay || '');
+    setFormError(null);
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -59,21 +61,29 @@ export function MapPage() {
       name: name.trim(),
       phone: phone.trim(),
       address: address.trim(),
-      day_of_week: routeDay || undefined,
+      day_of_week: routeDay || '',
     };
 
     if (editingCustomer) {
-      editClient(editingCustomer.id, payload);
+      const err = await editClient(editingCustomer.id, payload);
+      if (err) {
+        setFormError(err);
+        return;
+      }
     } else {
-      createClient(payload);
+      const { error: err } = await createClient(payload);
+      if (err) {
+        setFormError(err);
+        return;
+      }
     }
 
     setIsModalOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (customerToDelete) {
-      deleteClient(customerToDelete.id);
+      await deleteClient(customerToDelete.id);
       setCustomerToDelete(null);
     }
   };
@@ -96,7 +106,7 @@ export function MapPage() {
   if (loading) {
     return <div className="p-4 text-center text-slate-500">Carregando clientes...</div>;
   }
-// TELA
+
   return (
     <div className="space-y-4 pb-20 pt-2">
       <div className="flex items-center justify-between">
@@ -106,7 +116,6 @@ export function MapPage() {
         </div>
       </div>
 
-      {/* Filtros de Dias da Rota */}
       <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {daysOfWeek.map((day) => (
           <button
@@ -123,7 +132,6 @@ export function MapPage() {
         ))}
       </div>
 
-      {/* BARRA DE PESQUISA */}
       <div className="relative">
         <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input 
@@ -135,7 +143,6 @@ export function MapPage() {
         />
       </div>
 
-      {/* LISTA DE CLIENTES */}
       <div className="space-y-3">
         <div className="text-xs font-medium text-slate-500 px-1">
           Clientes ({filteredCustomers.length})
@@ -199,7 +206,6 @@ export function MapPage() {
         )}
       </div>
 
-      {/* BOTÃO FLUTUANTE (FAB) */}
       <button 
         onClick={handleOpenAddModal}
         className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/40 transition hover:bg-blue-700 active:scale-95"
@@ -208,7 +214,6 @@ export function MapPage() {
         <Plus size={26} />
       </button>
 
-      {/* Modal de Cadastro / Edição */}
       {isModalOpen && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
@@ -231,6 +236,10 @@ export function MapPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-4 pt-4">
+              {formError && (
+                <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{formError}</div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Nome</label>
                 <input 
@@ -254,7 +263,6 @@ export function MapPage() {
                 />
               </div>
 
-              {/* Endereço com autocomplete */}
               <div className="relative">
                 <label className="block text-xs font-medium text-slate-600 mb-1">Endereço</label>
                 <input 
@@ -297,7 +305,6 @@ export function MapPage() {
                 )}
               </div>
 
-              {/* Dia da rota */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Dia da rota</label>
                 <select 
