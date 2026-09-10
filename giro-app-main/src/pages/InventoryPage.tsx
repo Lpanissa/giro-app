@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useProducts } from '@/hooks/useProducts';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 import { formatCurrency } from '@/utils/format';
 
 interface Product {
@@ -95,6 +96,10 @@ export function InventoryPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Botão de voltar do celular fecha o modal em vez de sair do app
+  useModalBackButton(isModalOpen, () => setIsModalOpen(false));
+
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [quantity, setQuantity] = useState('');
