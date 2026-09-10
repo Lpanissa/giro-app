@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, Trash2, Edit2, Search, MapPin, Phone, X, Navigation } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useClients } from '@/hooks/useClients';
@@ -21,6 +21,9 @@ export function MapPage() {
   
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
+
+  // Referência ao input de endereço, pra devolver o foco depois de escolher uma sugestão
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   // Controla qual cliente está com o menu de navegação (Maps/Waze) aberto
   const [openNavMenuId, setOpenNavMenuId] = useState<string | null>(null);
@@ -333,6 +336,7 @@ export function MapPage() {
               <div className="relative">
                 <label className="block text-xs font-medium text-slate-600 mb-1">Endereço</label>
                 <input 
+                  ref={addressInputRef}
                   type="text"
                   value={address}
                   onChange={(e) => {
@@ -358,8 +362,20 @@ export function MapPage() {
                             key={street}
                             type="button"
                             onClick={() => {
-                              setAddress(street);
+                              // Adiciona ", " no final pra já deixar o cursor pronto pro número
+                              const filled = `${street}, `;
+                              setAddress(filled);
                               setShowAddressSuggestions(false);
+
+                              // Devolve o foco pro input e posiciona o cursor no final,
+                              // assim dá pra continuar digitando o número na hora
+                              requestAnimationFrame(() => {
+                                const el = addressInputRef.current;
+                                if (el) {
+                                  el.focus();
+                                  el.setSelectionRange(filled.length, filled.length);
+                                }
+                              });
                             }}
                             className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-100 transition flex items-center gap-2"
                           >
