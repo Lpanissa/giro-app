@@ -9,6 +9,7 @@ import { CollectionsPage } from '@/pages/CollectionsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { useAuth } from '@/lib/useAuth';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -24,6 +25,10 @@ function App() {
   });
 
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Botão de voltar do celular fecha o menu/configurações em vez de sair do app
+  useModalBackButton(menuOpen, () => setMenuOpen(false));
+  useModalBackButton(settingsOpen, () => setSettingsOpen(false));
 
   useEffect(() => {
     localStorage.setItem('app_active_tab', activeTab);
