@@ -6,16 +6,16 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png" />
     <link rel="manifest" href="/manifest.webmanifest?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
-    <meta name="theme-color" content="#f8fafc" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="Controle financeiro, de estoque e rotas de vendas" />
     <title>Giro</title>
     <meta property="og:image" content="https://bolt.new/static/og_default.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://bolt.new/static/og_default.png" />
     <style>
-      /* Garante que o fundo do navegador nasce na cor clara do app */
+      /* Garante que o fundo do navegador nasce em branco puro */
       html, body {
-        background-color: #f8fafc !important;
+        background-color: #ffffff !important;
         margin: 0;
         padding: 0;
       }
@@ -23,14 +23,14 @@
       #app-overlay {
         position: fixed;
         inset: 0;
-        background-color: rgba(248, 250, 252, 0.85);
+        background-color: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(4px);
         z-index: 99999;
         transition: opacity 0.2s ease;
       }
     </style>
   </head>
-  <body class="bg-slate-50 text-slate-800">
+  <body class="bg-white text-slate-800">
     <div id="app-overlay"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
