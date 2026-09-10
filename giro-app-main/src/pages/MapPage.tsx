@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, Search, MapPin, Phone, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, MapPin, Phone, X, Navigation } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useClients } from '@/hooks/useClients';
 import type { Client } from '@/types';
@@ -22,6 +22,9 @@ export function MapPage() {
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
 
+  // Controla qual cliente está com o menu de navegação (Maps/Waze) aberto
+  const [openNavMenuId, setOpenNavMenuId] = useState<string | null>(null);
+
   const uniqueStreets = Array.from(
     new Set(
       clients
@@ -32,6 +35,22 @@ export function MapPage() {
   ) as string[];
 
   const daysOfWeek = ['Todos', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  // ---- Helpers de navegação / contato ----
+  const openGoogleMaps = (addr: string) => {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
+  };
+
+  const openWaze = (addr: string) => {
+    window.open(`https://waze.com/ul?q=${encodeURIComponent(addr)}&navigate=yes`, '_blank');
+  };
+
+  const openWhatsApp = (rawPhone: string) => {
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    if (!cleanPhone) return;
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    window.open(`https://wa.me/${fullPhone}`, '_blank');
+  };
 
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
@@ -170,17 +189,65 @@ export function MapPage() {
                       </span>
                     )}
                   </div>
+
                   {customer.address && (
-                    <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <MapPin size={14} className="text-slate-400 shrink-0" />
-                      <span>{customer.address}</span>
-                    </p>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenNavMenuId(openNavMenuId === customer.id ? null : customer.id)
+                        }
+                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 hover:underline text-left"
+                      >
+                        <MapPin size={14} className="text-slate-400 shrink-0" />
+                        <span>{customer.address}</span>
+                      </button>
+
+                      {openNavMenuId === customer.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setOpenNavMenuId(null)}
+                          />
+                          <div className="absolute left-0 top-full mt-1 z-20 min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openGoogleMaps(customer.address!);
+                                setOpenNavMenuId(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition"
+                            >
+                              <Navigation size={14} className="text-blue-500 shrink-0" />
+                              Abrir no Google Maps
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openWaze(customer.address!);
+                                setOpenNavMenuId(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition border-t border-slate-100"
+                            >
+                              <Navigation size={14} className="text-sky-500 shrink-0" />
+                              Abrir no Waze
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
+
                   {customer.phone && (
-                    <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => openWhatsApp(customer.phone!)}
+                      className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-green-600 hover:underline text-left"
+                      title="Abrir no WhatsApp"
+                    >
                       <Phone size={14} className="text-slate-400 shrink-0" />
                       <span>{customer.phone}</span>
-                    </p>
+                    </button>
                   )}
                 </div>
 
