@@ -6,7 +6,6 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png" />
     <link rel="manifest" href="/manifest.webmanifest?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
-    <!-- Altere a cor do tema para combinar com o fundo claro do app, evitando a barra/tela preta -->
     <meta name="theme-color" content="#f8fafc" />
     <meta name="description" content="Controle financeiro, de estoque e rotas de vendas" />
     <title>Giro</title>
@@ -20,13 +19,7 @@
         margin: 0;
         padding: 0;
       }
-      /* Força a ocultação de qualquer tela preta ou loader injetado pelo ambiente */
-      #app-loading, [id*="loading"], [class*="loading"], .splash, #splash {
-        display: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-      }
-      /* Efeito de tela ofuscada (loading suave) */
+      /* Ofuscado leve enquanto o React ainda não montou o conteúdo */
       #app-overlay {
         position: fixed;
         inset: 0;
@@ -36,18 +29,8 @@
         transition: opacity 0.2s ease;
       }
     </style>
-    <script>
-      // Remove instantaneamente qualquer resquício de tela preta antiga que tente injetar
-      const killOldLoader = () => {
-        const oldLoader = document.getElementById('app-loading') || document.querySelector('.app-loading');
-        if (oldLoader) oldLoader.remove();
-      };
-      document.addEventListener('DOMContentLoaded', killOldLoader);
-      setInterval(killOldLoader, 10);
-    </script>
   </head>
   <body class="bg-slate-50 text-slate-800">
-    <!-- Removido o bloco "app-loading" com o logo que causava o flash preto -->
     <div id="app-overlay"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
