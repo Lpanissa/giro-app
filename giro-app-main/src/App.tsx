@@ -150,22 +150,20 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
+        <div className="min-h-screen bg-white">
+          {!showSplash && !user && <LoginPage />}
+
+          {!showSplash && user && (
+            <StoreProvider>
+              <AuthenticatedApp signOut={signOut} />
+            </StoreProvider>
+          )}
+        </div>
+
+        {/* Overlay ofuscado (sem tela preta, sem logo) — combina com o overlay do index.html
+            para manter a mesma cor e o mesmo blur do início ao fim do carregamento. */}
         {showSplash && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black transition-opacity duration-300">
-            <div className="flex h-44 w-44 items-center justify-center rounded-[48px] bg-black">
-              <span className="text-4xl font-bold tracking-wider text-white">
-                <span className="text-[#00e699]">G</span>iro
-              </span>
-            </div>
-          </div>
-        )}
-
-        {!showSplash && !user && <LoginPage />}
-
-        {!showSplash && user && (
-          <StoreProvider>
-            <AuthenticatedApp signOut={signOut} />
-          </StoreProvider>
+          <div className="fixed inset-0 z-[99999] bg-white/85 backdrop-blur-sm transition-opacity duration-300" />
         )}
       </ToastProvider>
     </ThemeProvider>
