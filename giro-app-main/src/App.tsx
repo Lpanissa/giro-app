@@ -12,7 +12,6 @@ import { useAuth } from '@/lib/useAuth';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     const saved = localStorage.getItem('app_active_tab');
@@ -27,14 +26,6 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const initApp = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      setIsLoading(false);
-    };
-    initApp();
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem('app_active_tab', activeTab);
   }, [activeTab]);
 
@@ -47,23 +38,25 @@ function App() {
     document.documentElement.classList.remove('dark');
   }, []);
 
-  const showSplash = isLoading || authLoading;
-
   return (
     <ToastProvider>
-      {showSplash && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black transition-opacity duration-300">
-          <div className="flex h-44 w-44 items-center justify-center rounded-[48px] bg-black">
-            <span className="text-4xl font-bold tracking-wider text-white">
-              <span className="text-[#00e699]">G</span>iro
-            </span>
-          </div>
+      {/*
+        Antes havia uma splash preta em tela cheia com o logo, segurando o app
+        por 1,2s fixos mesmo sem nada real carregando. Removida.
+        Agora, enquanto a autenticação real está sendo verificada (authLoading),
+        mostramos só um leve ofuscado sobre o conteúdo — sem preto, sem logo,
+        consistente com o overlay claro do index.html.
+      */}
+
+      {authLoading && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-50/85 backdrop-blur-sm transition-opacity duration-200">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-emerald-500" />
         </div>
       )}
 
-      {!showSplash && !user && <LoginPage />}
+      {!authLoading && !user && <LoginPage />}
 
-      {!showSplash && user && (
+      {!authLoading && user && (
         <div className="min-h-screen bg-slate-50 text-slate-800 transition-colors">
           {!settingsOpen && !menuOpen && (
             <div className="sticky top-0 z-40 flex items-center justify-between px-3 py-1.5 bg-slate-50/95 backdrop-blur-sm">
