@@ -313,13 +313,13 @@ export function MapPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none"
                 >
                   <option value="">Nenhum (Sem dia fixo)</option>
-                  <option value="Segunda">Segunda</option>
-                  <option value="Terça">Terça</option>
-                  <option value="Quarta">Quarta</option>
-                  <option value="Quinta">Quinta</option>
-                  <option value="Sexta">Sexta</option>
-                  <option value="Sábado">Sábado</option>
-                  <option value="Domingo">Domingo</option>
+                  <option value="Seg">Segunda</option>
+                  <option value="Ter">Terça</option>
+                  <option value="Qua">Quarta</option>
+                  <option value="Qui">Quinta</option>
+                  <option value="Sex">Sexta</option>
+                  <option value="Sáb">Sábado</option>
+                  <option value="Dom">Domingo</option>
                 </select>
               </div>
 
