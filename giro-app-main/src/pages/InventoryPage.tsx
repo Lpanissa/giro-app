@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useProducts } from '@/hooks/useProducts';
+import { formatCurrency } from '@/utils/format';
 
 interface Product {
   id: string;
@@ -12,6 +13,79 @@ interface Product {
   cost: number;
   price: number;
   image?: string;
+}
+
+// Redimensiona a imagem de forma leve, usando decodificação nativa (createImageBitmap)
+// quando disponível, pra evitar carregar a foto em resolução total na memória
+// (isso é o que costuma travar/fechar o app em fotos tiradas direto da câmera).
+async function loadResizedDataUrl(file: File, maxDim = 300, quality = 0.5): Promise<string> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file, {
+        resizeWidth: maxDim,
+        resizeQuality: 'medium',
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas indisponível');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return canvas.toDataURL('image/jpeg', quality);
+    } catch (err) {
+      console.warn('createImageBitmap falhou, usando método alternativo:', err);
+    }
+  }
+
+  // Fallback pra navegadores sem suporte a createImageBitmap com resize
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('Falha ao ler o arquivo'));
+    reader.onloadend = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Falha ao carregar a imagem'));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) {
+              height *= maxDim / width;
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas indisponível');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Normaliza texto pra comparação (ignora maiúsculas, acentos e espaços nas pontas)
+function normalizeText(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 export function InventoryPage() {
@@ -32,6 +106,7 @@ export function InventoryPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -47,6 +122,19 @@ export function InventoryPage() {
   const lowStockProducts = products.filter(
     (p) => (p.minQuantity ?? 0) > 0 && p.quantity <= (p.minQuantity ?? 0)
   );
+
+  // Valor total em estoque (custo x quantidade) e lucro previsto ((venda - custo) x quantidade)
+  const inventoryTotals = useMemo(() => {
+    return products.reduce(
+      (acc, p) => {
+        const qty = p.quantity || 0;
+        acc.stockValue += (p.cost || 0) * qty;
+        acc.projectedProfit += ((p.price || 0) - (p.cost || 0)) * qty;
+        return acc;
+      },
+      { stockValue: 0, projectedProfit: 0 }
+    );
+  }, [products]);
 
   const formatCurrencyInput = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -97,47 +185,32 @@ export function InventoryPage() {
     setIsModalOpen(true);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = new Image();
-        img.src = reader.result as string;
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputEl = e.target;
+    const file = inputEl.files?.[0];
+    if (!file) return;
 
-            const MAX_WIDTH = 300;
-            const MAX_HEIGHT = 300;
-            if (width > height) {
-              if (width > MAX_WIDTH) {
-                height *= MAX_WIDTH / width;
-                width = MAX_WIDTH;
-              }
-            } else {
-              if (height > MAX_HEIGHT) {
-                width *= MAX_HEIGHT / height;
-                height = MAX_HEIGHT;
-              }
-            }
+    // Evita travar com fotos gigantes (câmeras de celulares novos tiram fotos de 10-20MB+)
+    const MAX_FILE_SIZE_MB = 25;
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setFormError('Essa foto é muito grande. Tente novamente ou escolha outra imagem.');
+      setShowPhotoOptions(false);
+      inputEl.value = '';
+      return;
+    }
 
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
-
-            setImage(canvas.toDataURL('image/jpeg', 0.5));
-          } catch (err) {
-            console.error('Erro ao processar imagem:', err);
-          } finally {
-            setShowPhotoOptions(false);
-          }
-        };
-      };
-      reader.readAsDataURL(file);
+    setIsProcessingPhoto(true);
+    try {
+      const dataUrl = await loadResizedDataUrl(file, 300, 0.5);
+      setImage(dataUrl);
+      setFormError(null);
+    } catch (err) {
+      console.error('Erro ao processar imagem:', err);
+      setFormError('Não foi possível carregar essa foto. Tente novamente.');
+    } finally {
+      setIsProcessingPhoto(false);
+      setShowPhotoOptions(false);
+      inputEl.value = ''; // permite selecionar a mesma foto de novo, se precisar
     }
   };
 
@@ -154,6 +227,26 @@ export function InventoryPage() {
       price: parseCurrencyToNumber(price),
       image,
     };
+
+    // Bloqueia produto duplicado: mesmo nome + categoria + custo + preço
+    // (se custo ou preço tiver qualquer diferença, mesmo 0,01, não é considerado duplicata)
+    const duplicate = products.find((p) => {
+      if (editingProduct && p.id === editingProduct.id) return false;
+      const pCategory = p.category?.trim() || 'Geral';
+      return (
+        normalizeText(p.name) === normalizeText(payload.name) &&
+        normalizeText(pCategory) === normalizeText(payload.category) &&
+        Number(p.cost.toFixed(2)) === Number(payload.cost.toFixed(2)) &&
+        Number(p.price.toFixed(2)) === Number(payload.price.toFixed(2))
+      );
+    });
+
+    if (duplicate) {
+      setFormError(
+        `Já existe um produto "${duplicate.name}" (${duplicate.category || 'Geral'}) com esse mesmo custo e preço cadastrado. Se for diferente, ajuste o custo ou o preço, ou use "Repor" para adicionar quantidade a esse produto.`
+      );
+      return;
+    }
 
     const err = editingProduct
       ? await updateProductInDb(editingProduct.id, payload)
@@ -200,10 +293,21 @@ export function InventoryPage() {
 
   return (
     <div className="space-y-4 pb-20">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 pt-2">Estoque</h1>
           <p className="text-sm text-slate-500">{products.length} Produtos cadastrados</p>
+        </div>
+
+        <div className="flex gap-2 shrink-0">
+          <div className="rounded-xl border border-slate-100 bg-white px-2.5 py-1.5 text-right">
+            <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">Em estoque</p>
+            <p className="text-xs font-bold text-slate-800 whitespace-nowrap">{formatCurrency(inventoryTotals.stockValue)}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-2.5 py-1.5 text-right">
+            <p className="text-[9px] font-medium uppercase tracking-wide text-emerald-600">Lucro prev.</p>
+            <p className="text-xs font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(inventoryTotals.projectedProfit)}</p>
+          </div>
         </div>
       </div>
 
@@ -465,7 +569,9 @@ export function InventoryPage() {
                   onClick={() => setShowPhotoOptions(true)}
                   className="group relative flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 transition hover:border-rose-500 hover:bg-rose-50/20 shrink-0"
                 >
-                  {image ? (
+                  {isProcessingPhoto ? (
+                    <span className="text-[10px] font-medium text-slate-400">Carregando...</span>
+                  ) : image ? (
                     <img src={image} alt="Preview" className="h-full w-full rounded-2xl object-cover" />
                   ) : (
                     <>
