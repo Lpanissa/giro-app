@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Plus, CircleDollarSign, ShoppingBag, X, Pencil, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, TrendingUp, Search } from 'lucide-react';
+import { Plus, CircleDollarSign, ShoppingBag, X, Pencil, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, TrendingUp, Search, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useDirectSales, type NewDirectSaleItem } from '@/hooks/useDirectSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useClients } from '@/hooks/useClients';
@@ -13,9 +14,14 @@ import type { DirectSale, SaleStatus } from '@/types';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const MONTHS_FULL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const WEEKDAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
 }
 
 function shortDateLabel(d: Date): string {
@@ -108,6 +114,13 @@ export function ProfitPage() {
   const [deleteTxId, setDeleteTxId] = useState<string | null>(null);
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
 
+  // Calendário customizado (com bolinha verde nos dias com venda)
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(() => new Date());
+
+  // Gráfico comparativo (por dia ou por mês)
+  const [chartMode, setChartMode] = useState<'dia' | 'mes'>('dia');
+
   const selectedDateKey = dayKey(selectedDate);
   const currentMonthYearPrefix = selectedDateKey.slice(0, 7);
   const currentMonthName = MONTHS_FULL[selectedDate.getMonth()];
@@ -156,6 +169,69 @@ export function ProfitPage() {
     const totalProfit = monthSales.reduce((sum, s) => sum + s.profit, 0);
     return { totalRevenue, totalProfit };
   }, [sales, currentMonthYearPrefix]);
+
+  // Dias com venda no mês exibido no mini calendário (pra desenhar a bolinha verde)
+  const salesDaysInViewMonth = useMemo(() => {
+    const prefix = `${calendarViewDate.getFullYear()}-${String(calendarViewDate.getMonth() + 1).padStart(2, '0')}`;
+    const set = new Set<number>();
+    sales.forEach((s) => {
+      if (s.created_at.slice(0, 7) === prefix) {
+        set.add(Number(s.created_at.slice(8, 10)));
+      }
+    });
+    return set;
+  }, [sales, calendarViewDate]);
+
+  // Últimos 14 dias, pro gráfico comparativo "Por dia"
+  const dailyChartData = useMemo(() => {
+    const days: { label: string; key: string; revenue: number; profit: number }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push({ label: shortDateLabel(d), key: dayKey(d), revenue: 0, profit: 0 });
+    }
+    const map = new Map(days.map((d) => [d.key, d]));
+    sales.forEach((s) => {
+      const entry = map.get(s.created_at.slice(0, 10));
+      if (entry) {
+        entry.revenue += s.unit_price * s.quantity;
+        entry.profit += s.profit;
+      }
+    });
+    return days;
+  }, [sales]);
+
+  // Últimos 6 meses, pro gráfico comparativo "Por mês"
+  const monthlyChartData = useMemo(() => {
+    const months: { label: string; key: string; revenue: number; profit: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months.push({ label: `${MONTHS_SHORT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, key, revenue: 0, profit: 0 });
+    }
+    const map = new Map(months.map((m) => [m.key, m]));
+    sales.forEach((s) => {
+      const entry = map.get(s.created_at.slice(0, 7));
+      if (entry) {
+        entry.revenue += s.unit_price * s.quantity;
+        entry.profit += s.profit;
+      }
+    });
+    return months;
+  }, [sales]);
+
+  const activeChartData = chartMode === 'dia' ? dailyChartData : monthlyChartData;
+
+  // Comparação do último período com o anterior (hoje vs ontem, ou este mês vs o passado)
+  const chartComparison = useMemo(() => {
+    if (activeChartData.length < 2) return null;
+    const current = activeChartData[activeChartData.length - 1];
+    const previous = activeChartData[activeChartData.length - 2];
+    const diff = current.profit - previous.profit;
+    const pct = previous.profit !== 0 ? (diff / Math.abs(previous.profit)) * 100 : (current.profit > 0 ? 100 : 0);
+    return { diff, pct };
+  }, [activeChartData]);
 
   const groupedSales = useMemo(() => {
     const map = new Map<string, GroupedSale>();
@@ -278,31 +354,110 @@ export function ProfitPage() {
         <p className="text-sm text-slate-500">Acompanhe o desempenho diário</p>
       </div>
 
-      <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+      <div className="relative flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
         <button onClick={goPrevDay} className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
           <ChevronLeft size={20} />
         </button>
 
-        <label className="relative flex cursor-pointer items-center gap-2 rounded-xl px-3 py-1 transition hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => {
+            setCalendarViewDate(selectedDate);
+            setShowCalendar((v) => !v);
+          }}
+          className="flex items-center gap-2 rounded-xl px-3 py-1 transition hover:bg-slate-50"
+        >
           <CalendarIcon size={16} className="text-emerald-500" />
           <span className="text-base font-semibold text-slate-800">{shortDateLabel(selectedDate)}</span>
-          <input
-            type="date"
-            value={selectedDateKey}
-            onChange={(e) => {
-              if (e.target.value) {
-                const [y, m, d] = e.target.value.split('-').map(Number);
-                setSelectedDate(new Date(y, m - 1, d));
-              }
-            }}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            style={{ colorScheme: 'light' }}
-          />
-        </label>
+        </button>
 
         <button onClick={goNextDay} className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
           <ChevronRight size={20} />
         </button>
+
+        {showCalendar && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setShowCalendar(false)} />
+            <div className="absolute left-1/2 top-full z-40 mt-2 w-72 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+              <div className="mb-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))
+                  }
+                  className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm font-semibold text-slate-800">
+                  {MONTHS_FULL[calendarViewDate.getMonth()]} {calendarViewDate.getFullYear()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))
+                  }
+                  className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="mb-1 grid grid-cols-7 gap-1">
+                {WEEKDAY_LABELS.map((w, i) => (
+                  <div key={i} className="text-center text-[10px] font-medium text-slate-400">
+                    {w}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {(() => {
+                  const year = calendarViewDate.getFullYear();
+                  const month = calendarViewDate.getMonth();
+                  const firstWeekday = new Date(year, month, 1).getDay();
+                  const totalDays = daysInMonth(year, month);
+                  const cells: JSX.Element[] = [];
+
+                  for (let i = 0; i < firstWeekday; i++) {
+                    cells.push(<div key={`empty-${i}`} />);
+                  }
+
+                  for (let day = 1; day <= totalDays; day++) {
+                    const isSelected =
+                      day === selectedDate.getDate() &&
+                      month === selectedDate.getMonth() &&
+                      year === selectedDate.getFullYear();
+                    const hasSales = salesDaysInViewMonth.has(day);
+
+                    cells.push(
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(new Date(year, month, day));
+                          setShowCalendar(false);
+                        }}
+                        className={`relative flex h-8 w-8 items-center justify-center rounded-full text-xs transition ${
+                          isSelected
+                            ? 'bg-emerald-500 font-semibold text-white'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {day}
+                        {hasSales && !isSelected && (
+                          <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-emerald-500" />
+                        )}
+                      </button>
+                    );
+                  }
+
+                  return cells;
+                })()}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="rounded-3xl bg-emerald-500 px-5 py-6 shadow-lg shadow-emerald-500/20">
@@ -407,6 +562,64 @@ export function ProfitPage() {
             <p className="mt-1 text-base font-semibold text-emerald-700">{formatCurrency(monthlySummary.totalProfit)}</p>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <BarChart3 size={16} className="text-emerald-500" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">Comparativo</span>
+          </div>
+          <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => setChartMode('dia')}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                chartMode === 'dia' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Por dia
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode('mes')}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                chartMode === 'mes' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Por mês
+            </button>
+          </div>
+        </div>
+
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={activeChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip
+                formatter={(value: number) => formatCurrency(value)}
+                labelFormatter={(label) => label}
+                contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+              />
+              <Bar dataKey="profit" fill="#10b981" radius={[6, 6, 0, 0]} name="Lucro" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {chartComparison && (
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+            <span className="text-[11px] text-slate-500">
+              {chartMode === 'dia' ? 'Hoje vs ontem' : 'Este mês vs mês passado'}
+            </span>
+            <span className={`text-xs font-semibold ${chartComparison.diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {chartComparison.diff >= 0 ? '+' : ''}
+              {formatCurrency(chartComparison.diff)} ({chartComparison.diff >= 0 ? '+' : ''}
+              {chartComparison.pct.toFixed(0)}%)
+            </span>
+          </div>
+        )}
       </div>
 
       <button 
