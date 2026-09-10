@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { useDirectSales, type NewDirectSaleItem } from '@/hooks/useDirectSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useClients } from '@/hooks/useClients';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 import { useToast } from '@/components/common/Toast';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -102,6 +103,10 @@ export function ProfitPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [dueDate, setDueDate] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Botão de voltar do celular fecha o sheet em vez de sair do app
+  useModalBackButton(sheetOpen, () => setSheetOpen(false));
+
   const [clientId, setClientId] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
@@ -137,6 +142,9 @@ export function ProfitPage() {
   };
 
   const [editingSale, setEditingSale] = useState<GroupedSale | null>(null);
+
+  // Botão de voltar do celular fecha o sheet de edição em vez de sair do app
+  useModalBackButton(!!editingSale, () => setEditingSale(null));
 
   const filteredClients = useMemo(() => {
     if (!clientSearch.trim()) return [];
