@@ -160,10 +160,13 @@ function App() {
           )}
         </div>
 
-        {/* Overlay ofuscado (sem tela preta, sem logo) — combina com o overlay do index.html
-            para manter a mesma cor e o mesmo blur do início ao fim do carregamento. */}
+        {/* Overlay ofuscado (sem tela preta, sem logo) com rodinha de carregamento —
+            combina com o overlay do index.html pra manter a mesma cor e blur do
+            início ao fim do carregamento. */}
         {showSplash && (
-          <div className="fixed inset-0 z-[99999] bg-white/85 backdrop-blur-sm transition-opacity duration-300" />
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white/85 backdrop-blur-sm transition-opacity duration-300">
+            <div className="h-7 w-7 rounded-full border-[3px] border-slate-200 border-t-slate-500 animate-spin" />
+          </div>
         )}
       </ToastProvider>
     </ThemeProvider>
