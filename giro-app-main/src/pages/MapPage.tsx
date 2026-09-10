@@ -86,6 +86,33 @@ export function MapPage() {
       day_of_week: routeDay || '',
     };
 
+    // Bloqueia cadastro duplicado: mesmo nome (ignorando maiúsculas/acentos/espaços)
+    // no mesmo dia da rota, exceto o próprio cliente quando estamos editando.
+    const normalize = (s: string) =>
+      s
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+    const duplicate = clients.find((c) => {
+      if (editingCustomer && c.id === editingCustomer.id) return false;
+      const cDay = c.day_of_week || (c as any).routeDay || '';
+      return (
+        normalize(c.name) === normalize(payload.name) &&
+        cDay === payload.day_of_week
+      );
+    });
+
+    if (duplicate) {
+      setFormError(
+        payload.day_of_week
+          ? `Já existe um cliente chamado "${duplicate.name}" cadastrado no dia ${payload.day_of_week}.`
+          : `Já existe um cliente chamado "${duplicate.name}" sem dia fixo cadastrado.`
+      );
+      return;
+    }
+
     if (editingCustomer) {
       const err = await editClient(editingCustomer.id, payload);
       if (err) {
