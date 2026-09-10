@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Plus, Trash2, Edit2, Search, MapPin, Phone, X, Navigation } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useClients } from '@/hooks/useClients';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 import type { Client } from '@/types';
 
 export function MapPage() {
@@ -21,6 +22,9 @@ export function MapPage() {
   
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
+
+  // Botão de voltar do celular fecha o modal em vez de sair do app
+  useModalBackButton(isModalOpen, () => setIsModalOpen(false));
 
   // Referência ao input de endereço, pra devolver o foco depois de escolher uma sugestão
   const addressInputRef = useRef<HTMLInputElement>(null);
