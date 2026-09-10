@@ -11,6 +11,8 @@ import { LoginPage } from '@/pages/LoginPage';
 import { StorePage } from '@/pages/StorePage';
 import { useAuth } from '@/lib/useAuth';
 import { StoreProvider } from '@/lib/StoreContext';
+import { ThemeProvider } from '@/lib/ThemeProvider';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }) {
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -113,12 +115,15 @@ function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }
           <div className="w-full max-w-md bg-slate-50 h-full overflow-y-auto p-5 shadow-xl animate-slide-left">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
               <h2 className="text-base font-semibold text-slate-800">Configurações</h2>
-              <button
-                onClick={() => setSettingsOpen(false)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="rounded-full p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <SettingsPage />
           </div>
@@ -140,33 +145,30 @@ function App() {
     initApp();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('theme', 'light');
-    document.documentElement.classList.remove('dark');
-  }, []);
-
   const showSplash = isLoading || authLoading;
 
   return (
-    <ToastProvider>
-      {showSplash && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black transition-opacity duration-300">
-          <div className="flex h-44 w-44 items-center justify-center rounded-[48px] bg-black">
-            <span className="text-4xl font-bold tracking-wider text-white">
-              <span className="text-[#00e699]">G</span>iro
-            </span>
+    <ThemeProvider>
+      <ToastProvider>
+        {showSplash && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black transition-opacity duration-300">
+            <div className="flex h-44 w-44 items-center justify-center rounded-[48px] bg-black">
+              <span className="text-4xl font-bold tracking-wider text-white">
+                <span className="text-[#00e699]">G</span>iro
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {!showSplash && !user && <LoginPage />}
+        {!showSplash && !user && <LoginPage />}
 
-      {!showSplash && user && (
-        <StoreProvider>
-          <AuthenticatedApp signOut={signOut} />
-        </StoreProvider>
-      )}
-    </ToastProvider>
+        {!showSplash && user && (
+          <StoreProvider>
+            <AuthenticatedApp signOut={signOut} />
+          </StoreProvider>
+        )}
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 
