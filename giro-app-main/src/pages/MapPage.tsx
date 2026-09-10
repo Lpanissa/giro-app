@@ -191,7 +191,7 @@ export function MapPage() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Pesquisar clientes, endereços ou telefones..."
+          placeholder="Pesquisar clientes, tags, endereços ou telefones..."
           className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none"
         />
       </div>
