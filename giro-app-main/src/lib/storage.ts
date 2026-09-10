@@ -37,6 +37,13 @@ const KEYS = {
   dayCloses: 'cr_day_closes_v1',
 } as const;
 
+export interface Store {
+  id: string;
+  name: string;
+  segment?: string;
+  createdAt: string;
+}
+
 export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
@@ -87,102 +94,145 @@ function requireUid(): string {
   return currentUid;
 }
 
-function userCollection(name: string) {
-  return collection(db, 'users', requireUid(), name);
+// ---------------------------------------------------------------------------
+// Lojas (users/{uid}/stores/{storeId})
+// ---------------------------------------------------------------------------
+
+function userStoresCollection() {
+  return collection(db, 'users', requireUid(), 'stores');
 }
 
-function userDoc(name: string, id: string) {
-  return doc(db, 'users', requireUid(), name, id);
+function userStoreDoc(storeId: string) {
+  return doc(db, 'users', requireUid(), 'stores', storeId);
+}
+
+export function subscribeStores(callback: (stores: Store[]) => void): Unsubscribe {
+  const q = query(userStoresCollection(), orderBy('createdAt'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Store)));
+  });
+}
+
+export async function createStore(input: { name: string; segment?: string }): Promise<string> {
+  const docRef = await addDoc(userStoresCollection(), {
+    name: input.name,
+    segment: input.segment ?? '',
+    createdAt: nowISO(),
+  });
+  return docRef.id;
+}
+
+export async function renameStore(storeId: string, name: string): Promise<void> {
+  await updateDoc(userStoreDoc(storeId), { name });
+}
+
+export async function deleteStore(storeId: string): Promise<void> {
+  // Remove o registro da loja. Os produtos/clientes/vendas dentro dela ficam
+  // órfãos no Firestore (não são apagados automaticamente) — limpeza futura.
+  await deleteDoc(userStoreDoc(storeId));
 }
 
 // ---------------------------------------------------------------------------
-// Produtos (Firestore, escopado por usuário)
+// Base para dados DENTRO de uma loja (users/{uid}/stores/{storeId}/<coleção>)
 // ---------------------------------------------------------------------------
 
-export function subscribeProducts(callback: (products: Product[]) => void): Unsubscribe {
-  const q = query(userCollection('products'), orderBy('name'));
+function storeCollection(storeId: string, name: string) {
+  return collection(db, 'users', requireUid(), 'stores', storeId, name);
+}
+
+function storeDoc(storeId: string, name: string, id: string) {
+  return doc(db, 'users', requireUid(), 'stores', storeId, name, id);
+}
+
+// ---------------------------------------------------------------------------
+// Produtos (Firestore, escopado por usuário + loja)
+// ---------------------------------------------------------------------------
+
+export function subscribeProducts(storeId: string, callback: (products: Product[]) => void): Unsubscribe {
+  const q = query(storeCollection(storeId, 'products'), orderBy('name'));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product)));
   });
 }
 
-export async function getProductsOnce(): Promise<Product[]> {
-  const snap = await getDocs(userCollection('products'));
+export async function getProductsOnce(storeId: string): Promise<Product[]> {
+  const snap = await getDocs(storeCollection(storeId, 'products'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
 }
 
-export async function saveProduct(input: Omit<Product, 'id' | 'created_at'>): Promise<string> {
-  const docRef = await addDoc(userCollection('products'), {
+export async function saveProduct(storeId: string, input: Omit<Product, 'id' | 'created_at'>): Promise<string> {
+  const docRef = await addDoc(storeCollection(storeId, 'products'), {
     ...input,
     created_at: nowISO(),
   });
   return docRef.id;
 }
 
-export async function updateProduct(id: string, input: Partial<Omit<Product, 'id' | 'created_at'>>): Promise<void> {
-  await updateDoc(userDoc('products', id), input as Record<string, unknown>);
+export async function updateProduct(storeId: string, id: string, input: Partial<Omit<Product, 'id' | 'created_at'>>): Promise<void> {
+  await updateDoc(storeDoc(storeId, 'products', id), input as Record<string, unknown>);
 }
 
-export async function deleteProduct(id: string): Promise<void> {
-  await deleteDoc(userDoc('products', id));
+export async function deleteProduct(storeId: string, id: string): Promise<void> {
+  await deleteDoc(storeDoc(storeId, 'products', id));
 }
 
-export async function adjustProductQuantity(id: string, delta: number): Promise<void> {
-  await updateDoc(userDoc('products', id), { quantity: increment(delta) });
+export async function adjustProductQuantity(storeId: string, id: string, delta: number): Promise<void> {
+  await updateDoc(storeDoc(storeId, 'products', id), { quantity: increment(delta) });
 }
 
-async function deductStock(productId: string, quantity: number): Promise<void> {
-  await adjustProductQuantity(productId, -quantity);
+async function deductStock(storeId: string, productId: string, quantity: number): Promise<void> {
+  await adjustProductQuantity(storeId, productId, -quantity);
 }
 
-async function restoreStock(productId: string, quantity: number): Promise<void> {
-  await adjustProductQuantity(productId, quantity);
+async function restoreStock(storeId: string, productId: string, quantity: number): Promise<void> {
+  await adjustProductQuantity(storeId, productId, quantity);
 }
 
 // ---------------------------------------------------------------------------
-// Clientes (Firestore, escopado por usuário)
+// Clientes (Firestore, escopado por usuário + loja)
 // ---------------------------------------------------------------------------
 
-export function subscribeClients(callback: (clients: Client[]) => void): Unsubscribe {
-  const q = query(userCollection('clients'), orderBy('name'));
+export function subscribeClients(storeId: string, callback: (clients: Client[]) => void): Unsubscribe {
+  const q = query(storeCollection(storeId, 'clients'), orderBy('name'));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Client)));
   });
 }
 
-export async function getClientsOnce(): Promise<Client[]> {
-  const snap = await getDocs(userCollection('clients'));
+export async function getClientsOnce(storeId: string): Promise<Client[]> {
+  const snap = await getDocs(storeCollection(storeId, 'clients'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Client));
 }
 
-export async function saveClient(input: Omit<Client, 'id' | 'created_at'>): Promise<string> {
-  const docRef = await addDoc(userCollection('clients'), {
+export async function saveClient(storeId: string, input: Omit<Client, 'id' | 'created_at'>): Promise<string> {
+  const docRef = await addDoc(storeCollection(storeId, 'clients'), {
     ...input,
     created_at: nowISO(),
   });
   return docRef.id;
 }
 
-export async function updateClient(id: string, input: Partial<Omit<Client, 'id' | 'created_at'>>): Promise<void> {
-  await updateDoc(userDoc('clients', id), input as Record<string, unknown>);
+export async function updateClient(storeId: string, id: string, input: Partial<Omit<Client, 'id' | 'created_at'>>): Promise<void> {
+  await updateDoc(storeDoc(storeId, 'clients', id), input as Record<string, unknown>);
 }
 
-export async function deleteClient(id: string): Promise<void> {
-  await deleteDoc(userDoc('clients', id));
+export async function deleteClient(storeId: string, id: string): Promise<void> {
+  await deleteDoc(storeDoc(storeId, 'clients', id));
 }
 
 // ---------------------------------------------------------------------------
-// Vendas Diretas (Firestore, escopado por usuário)
+// Vendas Diretas (Firestore, escopado por usuário + loja)
 // ---------------------------------------------------------------------------
 
-export function subscribeDirectSales(callback: (sales: DirectSale[]) => void): Unsubscribe {
-  const q = query(userCollection('directSales'), orderBy('created_at', 'desc'));
+export function subscribeDirectSales(storeId: string, callback: (sales: DirectSale[]) => void): Unsubscribe {
+  const q = query(storeCollection(storeId, 'directSales'), orderBy('created_at', 'desc'));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DirectSale)));
   });
 }
 
 export async function saveMultiDirectSale(
+  storeId: string,
   clientId: string | null,
   status: DirectSale['status'],
   items: { product_id: string; quantity: number; unit_cost: number; unit_price: number }[],
@@ -196,7 +246,7 @@ export async function saveMultiDirectSale(
 
   for (const item of items) {
     const profit = (item.unit_price - item.unit_cost) * item.quantity;
-    await addDoc(userCollection('directSales'), {
+    await addDoc(storeCollection(storeId, 'directSales'), {
       transaction_id: txId,
       product_id: item.product_id,
       client_id: clientId,
@@ -209,13 +259,13 @@ export async function saveMultiDirectSale(
       due_date: dueDate ?? null,
       paid_at: null,
     });
-    await deductStock(item.product_id, item.quantity);
+    await deductStock(storeId, item.product_id, item.quantity);
   }
 
   return txId;
 }
 
-export async function updateDirectSale(id: string, input: {
+export async function updateDirectSale(storeId: string, id: string, input: {
   product_id?: string;
   client_id?: string | null;
   quantity?: number;
@@ -223,51 +273,52 @@ export async function updateDirectSale(id: string, input: {
   unit_price?: number;
   status?: DirectSale['status'];
 }): Promise<void> {
-  await updateDoc(userDoc('directSales', id), input as Record<string, unknown>);
+  await updateDoc(storeDoc(storeId, 'directSales', id), input as Record<string, unknown>);
 }
 
 export async function updateDirectSaleTransaction(
+  storeId: string,
   transactionId: string,
   updates: { client_id?: string | null; status?: DirectSale['status']; due_date?: string | null },
 ): Promise<void> {
-  const snap = await getDocs(userCollection('directSales'));
+  const snap = await getDocs(storeCollection(storeId, 'directSales'));
   const matching = snap.docs.filter((d) => d.data().transaction_id === transactionId);
   await Promise.all(matching.map((d) => updateDoc(d.ref, updates as Record<string, unknown>)));
 }
 
-export async function settleDirectSaleTransaction(transactionId: string): Promise<void> {
+export async function settleDirectSaleTransaction(storeId: string, transactionId: string): Promise<void> {
   const paidAt = nowISO();
-  const snap = await getDocs(userCollection('directSales'));
+  const snap = await getDocs(storeCollection(storeId, 'directSales'));
   const matching = snap.docs.filter((d) => d.data().transaction_id === transactionId);
   await Promise.all(matching.map((d) => updateDoc(d.ref, { status: 'Pago', paid_at: paidAt })));
 }
 
-export async function deleteDirectSaleTransaction(transactionId: string): Promise<void> {
-  const snap = await getDocs(userCollection('directSales'));
+export async function deleteDirectSaleTransaction(storeId: string, transactionId: string): Promise<void> {
+  const snap = await getDocs(storeCollection(storeId, 'directSales'));
   const matching = snap.docs.filter((d) => d.data().transaction_id === transactionId);
   for (const d of matching) {
     const sale = d.data() as DirectSale;
     if (sale.product_id) {
-      await restoreStock(sale.product_id, sale.quantity);
+      await restoreStock(storeId, sale.product_id, sale.quantity);
     }
     await deleteDoc(d.ref);
   }
 }
 
-export async function deleteDirectSale(id: string): Promise<void> {
-  const snap = await getDocs(userCollection('directSales'));
+export async function deleteDirectSale(storeId: string, id: string): Promise<void> {
+  const snap = await getDocs(storeCollection(storeId, 'directSales'));
   const target = snap.docs.find((d) => d.id === id);
   if (target) {
     const sale = target.data() as DirectSale;
     if (sale.product_id) {
-      await restoreStock(sale.product_id, sale.quantity);
+      await restoreStock(storeId, sale.product_id, sale.quantity);
     }
     await deleteDoc(target.ref);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Pedidos + Itens (ainda em localStorage — migração pendente)
+// Pedidos + Itens (ainda em localStorage — migração pendente, sem escopo de loja ainda)
 // ---------------------------------------------------------------------------
 
 export function getOrders(): Order[] {
