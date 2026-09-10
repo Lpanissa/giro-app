@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn } from 'lucide-react';
+import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn, ChevronDown } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useProducts } from '@/hooks/useProducts';
 import { useModalBackButton } from '@/hooks/useModalBackButton';
@@ -118,11 +118,34 @@ export function InventoryPage() {
   const [productToAddStock, setProductToAddStock] = useState<Product | null>(null);
   const [addQuantityValue, setAddQuantityValue] = useState('');
 
+  // Controla se a lista de produtos com estoque baixo está expandida ou recolhida
+  const [lowStockExpanded, setLowStockExpanded] = useState(false);
+
   const fileInputGalleryRef = useRef<HTMLInputElement>(null);
   const fileInputCameraRef = useRef<HTMLInputElement>(null);
 
-  const categories = ['Todas', ...Array.from(new Set(products.map((p) => p.category?.trim() || 'Geral')))];
-  const uniqueCategories = Array.from(new Set(products.map((p) => p.category?.trim()).filter(Boolean))) as string[];
+  // Categorias deduplicadas ignorando maiúsculas/minúsculas, acentos e espaços nas pontas,
+  // mantendo a grafia da primeira ocorrência encontrada.
+  const categoryMap = new Map<string, string>();
+  products.forEach((p) => {
+    const raw = p.category?.trim() || 'Geral';
+    const norm = normalizeText(raw);
+    if (!categoryMap.has(norm)) {
+      categoryMap.set(norm, raw);
+    }
+  });
+  const categories = ['Todas', ...Array.from(categoryMap.values())];
+
+  const uniqueCategoryMap = new Map<string, string>();
+  products.forEach((p) => {
+    const raw = p.category?.trim();
+    if (!raw) return;
+    const norm = normalizeText(raw);
+    if (!uniqueCategoryMap.has(norm)) {
+      uniqueCategoryMap.set(norm, raw);
+    }
+  });
+  const uniqueCategories = Array.from(uniqueCategoryMap.values());
 
   const lowStockProducts = products.filter(
     (p) => (p.minQuantity ?? 0) > 0 && p.quantity <= (p.minQuantity ?? 0)
@@ -223,9 +246,17 @@ export function InventoryPage() {
     e.preventDefault();
     if (!name.trim()) return;
 
+    // Se a categoria digitada já existir (ignorando maiúsculas/minúsculas, acentos e
+    // espaços nas pontas), reaproveita a grafia já usada em vez de criar uma nova categoria.
+    const rawCategory = category.trim() || 'Geral';
+    const existingCategoryMatch = uniqueCategories.find(
+      (c) => normalizeText(c) === normalizeText(rawCategory)
+    );
+    const finalCategory = existingCategoryMatch || rawCategory;
+
     const payload = {
       name,
-      category: category.trim() || 'Geral',
+      category: finalCategory,
       quantity: Number(quantity) || 0,
       minQuantity: Number(minQuantity) || 0,
       cost: parseCurrencyToNumber(cost),
@@ -292,7 +323,8 @@ export function InventoryPage() {
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const productCat = product.category?.trim() || 'Geral';
-    const matchesCategory = selectedCategory === 'Todas' || productCat === selectedCategory;
+    const matchesCategory =
+      selectedCategory === 'Todas' || normalizeText(productCat) === normalizeText(selectedCategory);
     return matchesSearch && matchesCategory;
   });
 
@@ -349,28 +381,46 @@ export function InventoryPage() {
 
       {lowStockProducts.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-          <div className="flex items-center gap-2 font-semibold text-amber-800">
-            <AlertTriangle size={18} className="text-amber-600" />
-            <span>Atenção</span>
-          </div>
-          <p className="mt-1 text-xs text-amber-700">Produtos abaixo atingiram o estoque mínimo e precisam de reposição:</p>
-          {lowStockProducts.map(p => (
-            <div key={p.id} className="mt-3 flex items-center justify-between rounded-xl bg-white/80 p-3 border border-amber-200 text-sm">
-              <div>
-                <span className="font-medium text-slate-800">{p.name}</span>
-                <span className="ml-2 text-xs font-semibold text-amber-700">Qtd: {p.quantity} (Mín. {p.minQuantity ?? 0})</span>
-              </div>
-              <button
-                onClick={() => {
-                  setProductToAddStock(p);
-                  setAddQuantityValue('');
-                }}
-                className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-amber-700"
-              >
-                <Plus size={14} /> Repor
-              </button>
+          <button
+            type="button"
+            onClick={() => setLowStockExpanded((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2 font-semibold text-amber-800">
+              <AlertTriangle size={18} className="text-amber-600" />
+              <span>Atenção</span>
+              <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                {lowStockProducts.length}
+              </span>
             </div>
-          ))}
+            <ChevronDown
+              size={18}
+              className={`text-amber-600 transition-transform ${lowStockExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {lowStockExpanded && (
+            <>
+              <p className="mt-2 text-xs text-amber-700">Produtos abaixo atingiram o estoque mínimo e precisam de reposição:</p>
+              {lowStockProducts.map(p => (
+                <div key={p.id} className="mt-3 flex items-center justify-between rounded-xl bg-white/80 p-3 border border-amber-200 text-sm">
+                  <div>
+                    <span className="font-medium text-slate-800">{p.name}</span>
+                    <span className="ml-2 text-xs font-semibold text-amber-700">Qtd: {p.quantity} (Mín. {p.minQuantity ?? 0})</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setProductToAddStock(p);
+                      setAddQuantityValue('');
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-amber-700"
+                  >
+                    <Plus size={14} /> Repor
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
