@@ -29,6 +29,23 @@
 .dark h1, .dark h2, .dark h3, .dark h4 {
   color: #f8fafc !important; /* slate-50 */
 }
+
+/* Correção automática de blocos/cards claros em modo escuro:
+   qualquer elemento que use bg-white/bg-slate-50 (sem um dark: explícito
+   já definido no componente) passa a acompanhar o fundo escuro. */
+.dark [class*="bg-white"] {
+  background-color: #1e293b !important; /* slate-800 */
+}
+
+.dark [class*="bg-slate-50"] {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+.dark [class*="border-slate-100"],
+.dark [class*="border-slate-200"] {
+  border-color: #334155 !important; /* slate-700 */
+}
+
 /* Remove a barra de rolagem horizontal nativa mantendo a rolagem fluida */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
