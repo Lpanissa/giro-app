@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Cloud, CheckCircle2, ShieldCheck, Database, LogOut, Mail, Sliders, RefreshCw, Info, Moon, Sun } from 'lucide-react';
+import { Cloud, CheckCircle2, ShieldCheck, Database, LogOut, Mail, Sliders, RefreshCw, Info } from 'lucide-react';
 import { useToast } from '@/components/common/Toast';
-import { useTheme } from '@/lib/ThemeProvider';
 import { auth, db, googleProvider } from '@/lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -27,7 +26,6 @@ const ALL_APP_KEYS: Record<string, string[]> = {
 
 export function SettingsPage() {
   const { notify } = useToast();
-  const { theme, toggleTheme } = useTheme();
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -368,31 +366,6 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto pb-10">
-      <div className="rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl p-3 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              {theme === 'dark' ? <Moon size={24} /> : <Sun size={24} />}
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Aparência</h2>
-              <p className="text-xs font-medium text-slate-400">
-                {theme === 'dark' ? 'Modo escuro ativado' : 'Modo claro ativado'}
-              </p>
-            </div>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={theme === 'dark'}
-              onChange={toggleTheme}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-          </label>
-        </div>
-      </div>
-
       <div className="rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
