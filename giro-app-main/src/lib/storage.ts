@@ -4,6 +4,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -181,7 +182,20 @@ export async function adjustProductQuantity(storeId: string, id: string, delta: 
 }
 
 async function deductStock(storeId: string, productId: string, quantity: number): Promise<void> {
-  await adjustProductQuantity(storeId, productId, -quantity);
+  const productRef = storeDoc(storeId, 'products', productId);
+  const snap = await getDoc(productRef);
+
+  // Produto não encontrado no estoque (ex: item removido, ou venda de serviço
+  // sem vínculo com produto cadastrado) — nada a descontar.
+  if (!snap.exists()) return;
+
+  const currentQuantity = Number(snap.data().quantity) || 0;
+
+  // Nunca deixa a quantidade ficar negativa: desconta no máximo o que existe em estoque.
+  const amountToDeduct = Math.min(quantity, currentQuantity);
+  if (amountToDeduct <= 0) return;
+
+  await updateDoc(productRef, { quantity: increment(-amountToDeduct) });
 }
 
 async function restoreStock(storeId: string, productId: string, quantity: number): Promise<void> {
