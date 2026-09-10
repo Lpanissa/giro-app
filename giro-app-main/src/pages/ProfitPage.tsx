@@ -41,6 +41,21 @@ function parseMoneyInput(value: string): number {
   return parseFloat(value.replace(',', '.')) || 0;
 }
 
+// Pega o dia da rota do cliente independente do nome do campo usado (day_of_week ou routeDay)
+function getClientDay(client: { day_of_week?: string | null } | any): string {
+  return client?.day_of_week || client?.routeDay || '';
+}
+
+// Pequeno badge reutilizável pra mostrar o dia da semana ao lado do nome do cliente
+function DayBadge({ day }: { day: string }) {
+  if (!day) return null;
+  return (
+    <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100">
+      {day}
+    </span>
+  );
+}
+
 interface SaleFormItem {
   product_id: string;
   productSearch?: string;
@@ -458,10 +473,13 @@ export function ProfitPage() {
                       setClientSearch(c.name);
                       setShowClientDropdown(false);
                     }}
-                    className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-xs text-slate-800 hover:bg-slate-50"
+                    className="flex cursor-pointer items-center justify-between gap-2 px-4 py-2.5 text-xs text-slate-800 hover:bg-slate-50"
                   >
-                    <span>{c.name}</span>
-                    {clientId === c.id && <Check size={14} className="text-emerald-500" />}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{c.name}</span>
+                      <DayBadge day={getClientDay(c)} />
+                    </span>
+                    {clientId === c.id && <Check size={14} className="shrink-0 text-emerald-500" />}
                   </div>
                 ))}
               </div>
@@ -715,7 +733,7 @@ function EditSaleSheet({
   onRequestDeleteSale,
 }: {
   group: GroupedSale;
-  clients: { id: string; name: string }[];
+  clients: { id: string; name: string; day_of_week?: string | null }[];
   products: { id: string; name: string; price: number; cost: number }[];
   onClose: () => void;
   onUpdate: (txId: string, updates: { client_id?: string | null; status?: SaleStatus; due_date?: string | null }) => void;
@@ -784,10 +802,13 @@ function EditSaleSheet({
                     setClientSearch(c.name);
                     setShowClientDropdown(false);
                   }}
-                  className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-xs text-slate-800 hover:bg-slate-50"
+                  className="flex cursor-pointer items-center justify-between gap-2 px-4 py-2.5 text-xs text-slate-800 hover:bg-slate-50"
                 >
-                  <span>{c.name}</span>
-                  {clientId === c.id && <Check size={14} className="text-emerald-500" />}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate">{c.name}</span>
+                    <DayBadge day={getClientDay(c)} />
+                  </span>
+                  {clientId === c.id && <Check size={14} className="shrink-0 text-emerald-500" />}
                 </div>
               ))}
             </div>
