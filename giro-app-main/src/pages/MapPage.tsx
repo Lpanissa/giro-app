@@ -28,6 +28,22 @@ function formatPhoneInput(raw: string): string {
 
 const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+// Deixa a primeira letra de cada palavra maiúscula, mantendo preposições comuns em minúsculo
+// (ex: "rua antonio bruni" -> "Rua Antonio Bruni", "maria da silva" -> "Maria da Silva")
+const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'dos', 'das', 'e']);
+
+function toTitleCase(input: string): string {
+  return input
+    .split(' ')
+    .map((word, index) => {
+      if (!word) return word;
+      const lower = word.toLowerCase();
+      if (index !== 0 && LOWERCASE_WORDS.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ');
+}
+
 export function MapPage() {
   const { clients, loading, createClient, editClient, deleteClient } = useClients();
   const { notify } = useToast();
@@ -428,7 +444,7 @@ export function MapPage() {
                   ref={nameInputRef}
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => setName(toTitleCase(e.target.value))}
                   onFocus={() => setFocusedField('name')}
                   onBlur={() => setTimeout(() => setFocusedField((f) => (f === 'name' ? null : f)), 120)}
                   placeholder="Ex: Nome do cliente"
@@ -509,8 +525,9 @@ export function MapPage() {
                   type="text"
                   value={address}
                   onChange={(e) => {
-                    setAddress(e.target.value);
-                    setShowAddressSuggestions(e.target.value.trim().length > 0);
+                    const capitalized = toTitleCase(e.target.value);
+                    setAddress(capitalized);
+                    setShowAddressSuggestions(capitalized.trim().length > 0);
                   }}
                   onFocus={() => {
                     setFocusedField('address');
