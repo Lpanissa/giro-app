@@ -72,6 +72,16 @@ export function useStores() {
     }
   }, []);
 
+  const updateImage = useCallback(async (id: string, image: string | undefined) => {
+    try {
+      await db.updateStoreImage(id, image);
+      return null;
+    } catch (e) {
+      console.error('[useStores] updateImage:', e);
+      return 'Erro ao atualizar foto da loja';
+    }
+  }, []);
+
   const deleteStore = useCallback(async (id: string) => {
     try {
       await db.deleteStore(id);
@@ -89,6 +99,7 @@ export function useStores() {
     setActiveStoreId,
     createStore,
     renameStore,
+    updateImage,
     deleteStore,
   };
 }
