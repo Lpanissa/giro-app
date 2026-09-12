@@ -536,10 +536,18 @@ export function MapPage() {
                   ref={addressInputRef}
                   type="text"
                   value={address}
-                  onChange={(e) => {
-                    setAddress(capitalized);
-                    setShowAddressSuggestions(capitalized.trim().length > 0);
-                  }}
+                 onChange={(e) => {
+          const input = e.target;
+          const start = input.selectionStart;
+          const end = input.selectionEnd;
+
+          setAddress(input.value);
+          setShowAddressSuggestions(input.value.trim().length > 0);
+
+          requestAnimationFrame(() => {
+            input.setSelectionRange(start, end);
+          });
+        }}
                   onFocus={() => {
                     setFocusedField('address');
                     if (address.trim().length > 0) setShowAddressSuggestions(true);
