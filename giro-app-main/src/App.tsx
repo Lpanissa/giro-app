@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Menu, X } from 'lucide-react';
+import { Settings, Menu, X, Store as StoreIcon } from 'lucide-react';
 import { AppHeader, type TabKey } from '@/components/layout/AppHeader';
 import { ToastProvider } from '@/components/common/Toast';
 import { InventoryPage } from '@/pages/InventoryPage';
@@ -10,9 +10,10 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { StorePage } from '@/pages/StorePage';
 import { useAuth } from '@/lib/useAuth';
-import { StoreProvider } from '@/lib/StoreContext';
+import { StoreProvider, useActiveStore } from '@/lib/StoreContext';
 import { ThemeProvider } from '@/lib/ThemeProvider';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }) {
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -20,25 +21,33 @@ function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }
     return (saved as TabKey) || 'vendas';
   });
 
-  const [settingsOpen, setSettingsOpen] = useState<boolean>(() => {
-    const saved = localStorage.getItem('app_settings_open');
-    return saved ? JSON.parse(saved) : false;
+  const [menuOpen, setMenuOpen] = useState(false);
+  // A tela de Loja fica DENTRO do drawer do menu — é uma troca de conteúdo
+  // interna, sem empilhar outro estado no histórico (ver observação abaixo).
+  const [storeScreenOpen, setStoreScreenOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Botão de voltar do celular fecha o Menu (com a tela de Loja, se estiver
+  // aberta) em vez de sair do app. Como o Menu e a Loja são tratados como um
+  // só nível no histórico, voltar com a Loja aberta fecha tudo de uma vez —
+  // dentro do app, o botão "X" continua voltando passo a passo normalmente.
+  useModalBackButton(menuOpen, () => {
+    setMenuOpen(false);
+    setStoreScreenOpen(false);
   });
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [storeScreenOpen, setStoreScreenOpen] = useState(false);
+  useModalBackButton(settingsOpen, () => setSettingsOpen(false));
+
+  const { stores, activeStoreId } = useActiveStore();
+  const activeStore = stores.find((s) => s.id === activeStoreId);
 
   useEffect(() => {
     localStorage.setItem('app_active_tab', activeTab);
   }, [activeTab]);
 
-  useEffect(() => {
-    localStorage.setItem('app_settings_open', JSON.stringify(settingsOpen));
-  }, [settingsOpen]);
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 transition-colors">
-      {!settingsOpen && !menuOpen && !storeScreenOpen && (
+      {!settingsOpen && !menuOpen && (
         <div className="sticky top-0 z-40 flex items-center justify-between px-3 py-1.5 bg-slate-50/95 backdrop-blur-sm">
           <button
             onClick={() => setMenuOpen(true)}
@@ -47,6 +56,22 @@ function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }
           >
             <Menu size={16} />
           </button>
+
+          {activeStore && (
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="flex items-center gap-1.5 min-w-0 rounded-full px-2 py-1 transition hover:bg-slate-100"
+            >
+              {activeStore.image ? (
+                <img src={activeStore.image} alt={activeStore.name} className="h-5 w-5 rounded-full object-cover border border-slate-200 shrink-0" />
+              ) : (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 shrink-0">
+                  <StoreIcon size={11} className="text-slate-500" />
+                </div>
+              )}
+              <span className="text-xs font-semibold text-slate-600 truncate max-w-[140px]">{activeStore.name}</span>
+            </button>
+          )}
 
           <button
             onClick={() => setSettingsOpen(true)}
@@ -67,6 +92,7 @@ function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }
         {activeTab === 'cobrancas' && <CollectionsPage />}
       </main>
 
+      {/* Painel lateral (Drawer) - abre pela esquerda */}
       {menuOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-start">
           <div className="w-full max-w-xs bg-slate-50 h-full overflow-y-auto p-5 shadow-xl animate-slide-right">
@@ -97,6 +123,7 @@ function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }
                   <button
                     onClick={async () => {
                       setMenuOpen(false);
+                      setStoreScreenOpen(false);
                       await signOut();
                     }}
                     className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 transition"
@@ -135,25 +162,14 @@ function AuthenticatedApp({ signOut }: { signOut: () => Promise<string | null> }
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const initApp = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      setIsLoading(false);
-    };
-    initApp();
-  }, []);
-
-  const showSplash = isLoading || authLoading;
 
   return (
     <ThemeProvider>
       <ToastProvider>
         <div className="min-h-screen bg-white">
-          {!showSplash && !user && <LoginPage />}
+          {!authLoading && !user && <LoginPage />}
 
-          {!showSplash && user && (
+          {!authLoading && user && (
             <StoreProvider>
               <AuthenticatedApp signOut={signOut} />
             </StoreProvider>
@@ -163,7 +179,7 @@ function App() {
         {/* Overlay ofuscado (sem tela preta, sem logo) com rodinha de carregamento —
             combina com o overlay do index.html pra manter a mesma cor e blur do
             início ao fim do carregamento. */}
-        {showSplash && (
+        {authLoading && (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-white/85 backdrop-blur-sm transition-opacity duration-300">
             <div className="h-7 w-7 rounded-full border-[3px] border-slate-200 border-t-slate-500 animate-spin" />
           </div>
