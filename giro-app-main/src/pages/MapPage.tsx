@@ -101,6 +101,7 @@ export function MapPage() {
       clients
         .map((c) => (c as any).tag?.trim())
         .filter(Boolean)
+        .map((t) => toTitleCase(t!)) // Padroniza o visual na sugestão
     )
   ) as string[];
 
