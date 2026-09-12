@@ -2,46 +2,22 @@ import { useRef, useState } from 'react';
 import { X, Plus, Store as StoreIcon, Check, Trash2, Camera } from 'lucide-react';
 import { useActiveStore } from '@/lib/StoreContext';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { ImageCropModal } from '@/components/common/ImageCropModal';
 
-function resizeImageFile(file: File, maxSize = 300, quality = 0.6): Promise<string> {
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error ?? new Error('Falha ao ler o arquivo'));
-    reader.onloadend = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Falha ao carregar a imagem'));
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxSize) {
-              height *= maxSize / width;
-              width = maxSize;
-            }
-          } else {
-            if (height > maxSize) {
-              width *= maxSize / height;
-              height = maxSize;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) throw new Error('Canvas indisponível');
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        } catch (err) {
-          reject(err);
-        }
-      };
-      img.src = reader.result as string;
-    };
     reader.readAsDataURL(file);
   });
+}
+
+// Quando forStoreId é null, o recorte é pra foto da loja em criação (formulário);
+// quando tem um id, é pra trocar a foto de uma loja já existente na lista.
+interface CropSource {
+  forStoreId: string | null;
+  rawDataUrl: string;
 }
 
 export function StorePage({ onClose }: { onClose: () => void }) {
@@ -55,21 +31,21 @@ export function StorePage({ onClose }: { onClose: () => void }) {
   const [storeToDelete, setStoreToDelete] = useState<{ id: string; name: string } | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cropSource, setCropSource] = useState<CropSource | null>(null);
 
-  // Input escondido único, reaproveitado pra trocar a foto de qualquer loja
-  // já existente na lista — guardamos qual loja está sendo editada aqui.
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
   const [editingImageForStoreId, setEditingImageForStoreId] = useState<string | null>(null);
 
   const handleNewImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     try {
-      const dataUrl = await resizeImageFile(file);
-      setNewImage(dataUrl);
+      const rawDataUrl = await readFileAsDataUrl(file);
+      setCropSource({ forStoreId: null, rawDataUrl });
     } catch (err) {
-      console.error('Erro ao processar imagem da loja:', err);
+      console.error('Erro ao ler imagem da loja:', err);
     }
   };
 
@@ -78,16 +54,29 @@ export function StorePage({ onClose }: { onClose: () => void }) {
     const storeId = editingImageForStoreId;
     e.target.value = '';
     if (!file || !storeId) return;
-
     try {
-      const dataUrl = await resizeImageFile(file);
-      const err = await updateImage(storeId, dataUrl);
-      if (err) setListError(err);
-      else setListError(null);
+      const rawDataUrl = await readFileAsDataUrl(file);
+      setCropSource({ forStoreId: storeId, rawDataUrl });
     } catch (err) {
-      console.error('Erro ao processar imagem da loja:', err);
+      console.error('Erro ao ler imagem da loja:', err);
       setListError('Não foi possível carregar essa foto.');
     }
+  };
+
+  const handleCropConfirm = async (croppedDataUrl: string) => {
+    if (!cropSource) return;
+
+    if (cropSource.forStoreId === null) {
+      // Foto do formulário de criar loja — só guarda no estado, salva junto com o resto
+      setNewImage(croppedDataUrl);
+      setCropSource(null);
+      return;
+    }
+
+    // Foto de uma loja já existente — salva direto no Firestore
+    const err = await updateImage(cropSource.forStoreId, croppedDataUrl);
+    setListError(err ?? null);
+    setCropSource(null);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -277,6 +266,15 @@ export function StorePage({ onClose }: { onClose: () => void }) {
         >
           <Plus size={16} /> Adicionar loja
         </button>
+      )}
+
+      {cropSource && (
+        <ImageCropModal
+          imageSrc={cropSource.rawDataUrl}
+          aspect={1}
+          onCancel={() => setCropSource(null)}
+          onConfirm={handleCropConfirm}
+        />
       )}
 
       <ConfirmDialog
