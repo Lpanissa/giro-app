@@ -181,7 +181,7 @@ export function MapPage() {
       phone: phone.trim(),
       address: address.trim(),
       day_of_week: routeDay || '',
-      tag: toTitleCase(tag.trim()) || '',
+      tag: tag.trim() || '',
     };
 
     // Bloqueia cadastro duplicado SÓ se TODOS os campos forem iguais
