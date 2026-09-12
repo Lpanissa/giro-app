@@ -97,13 +97,17 @@ export function MapPage() {
   ) as string[];
 
   const uniqueTags = Array.from(
-    new Set(
-      clients
-        .map((c) => (c as any).tag?.trim())
-        .filter(Boolean)
-        .map((t) => toTitleCase(t!)) // Padroniza o visual na sugestão
-    )
-  ) as string[];
+    clients.reduce((map, c) => {
+      const rawTag = (c as any).tag?.trim();
+      if (rawTag) {
+        const lowerKey = rawTag.toLowerCase();
+        if (!map.has(lowerKey)) {
+          map.set(lowerKey, rawTag);
+        }
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
 
   const daysOfWeek = ['Todos', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
