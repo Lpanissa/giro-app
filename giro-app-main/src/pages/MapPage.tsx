@@ -537,7 +537,6 @@ export function MapPage() {
                   type="text"
                   value={address}
                   onChange={(e) => {
-                    const capitalized = toTitleCase(e.target.value);
                     setAddress(capitalized);
                     setShowAddressSuggestions(capitalized.trim().length > 0);
                   }}
@@ -546,6 +545,7 @@ export function MapPage() {
                     if (address.trim().length > 0) setShowAddressSuggestions(true);
                   }}
                   onBlur={() => {
+                    setAddress(toTitleCase(address));
                     setTimeout(() => {
                       setFocusedField((f) => (f === 'address' ? null : f));
                     }, 150);
