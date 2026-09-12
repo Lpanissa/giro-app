@@ -1,22 +1,100 @@
-import { useState } from 'react';
-import { X, Plus, Store as StoreIcon, Check, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { X, Plus, Store as StoreIcon, Check, Trash2, Camera } from 'lucide-react';
 import { useActiveStore } from '@/lib/StoreContext';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
+function resizeImageFile(file: File, maxSize = 300, quality = 0.6): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('Falha ao ler o arquivo'));
+    reader.onloadend = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Falha ao carregar a imagem'));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height;
+              height = maxSize;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas indisponível');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function StorePage({ onClose }: { onClose: () => void }) {
-  const { stores, loading, activeStoreId, setActiveStoreId, createStore, deleteStore } = useActiveStore();
+  const { stores, loading, activeStoreId, setActiveStoreId, createStore, updateImage, deleteStore } = useActiveStore();
 
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSegment, setNewSegment] = useState('');
+  const [newImage, setNewImage] = useState<string | undefined>(undefined);
   const [formError, setFormError] = useState<string | null>(null);
   const [storeToDelete, setStoreToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Input escondido único, reaproveitado pra trocar a foto de qualquer loja
+  // já existente na lista — guardamos qual loja está sendo editada aqui.
+  const editImageInputRef = useRef<HTMLInputElement>(null);
+  const [editingImageForStoreId, setEditingImageForStoreId] = useState<string | null>(null);
+
+  const handleNewImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await resizeImageFile(file);
+      setNewImage(dataUrl);
+    } catch (err) {
+      console.error('Erro ao processar imagem da loja:', err);
+    }
+  };
+
+  const handleEditImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const storeId = editingImageForStoreId;
+    e.target.value = '';
+    if (!file || !storeId) return;
+
+    try {
+      const dataUrl = await resizeImageFile(file);
+      const err = await updateImage(storeId, dataUrl);
+      if (err) setListError(err);
+      else setListError(null);
+    } catch (err) {
+      console.error('Erro ao processar imagem da loja:', err);
+      setListError('Não foi possível carregar essa foto.');
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
 
-    const { error } = await createStore({ name: newName.trim(), segment: newSegment.trim() });
+    const { error } = await createStore({ name: newName.trim(), segment: newSegment.trim(), image: newImage });
     if (error) {
       setFormError(error);
       return;
@@ -24,6 +102,7 @@ export function StorePage({ onClose }: { onClose: () => void }) {
 
     setNewName('');
     setNewSegment('');
+    setNewImage(undefined);
     setFormError(null);
     setIsAdding(false);
   };
@@ -47,6 +126,19 @@ export function StorePage({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
+      {/* Input escondido reaproveitado para trocar a foto de qualquer loja da lista */}
+      <input
+        type="file"
+        ref={editImageInputRef}
+        onChange={handleEditImageChange}
+        accept="image/*"
+        className="hidden"
+      />
+
+      {listError && (
+        <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{listError}</div>
+      )}
+
       {loading ? (
         <p className="text-sm text-slate-500 text-center py-6">Carregando lojas...</p>
       ) : stores.length === 0 && !isAdding ? (
@@ -66,8 +158,26 @@ export function StorePage({ onClose }: { onClose: () => void }) {
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${store.id === activeStoreId ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                  <StoreIcon size={16} />
+                <div className="relative shrink-0">
+                  {store.image ? (
+                    <img src={store.image} alt={store.name} className="h-9 w-9 rounded-xl object-cover border border-slate-200" />
+                  ) : (
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${store.id === activeStoreId ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      <StoreIcon size={16} />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingImageForStoreId(store.id);
+                      editImageInputRef.current?.click();
+                    }}
+                    className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm border border-slate-200 hover:bg-slate-100 hover:text-slate-700 transition"
+                    title="Trocar foto da loja"
+                  >
+                    <Camera size={11} />
+                  </button>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{store.name}</p>
@@ -98,6 +208,30 @@ export function StorePage({ onClose }: { onClose: () => void }) {
           {formError && (
             <div className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600">{formError}</div>
           )}
+
+          <div className="flex justify-center">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleNewImageChange}
+              accept="image/*"
+              className="hidden"
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 transition hover:border-emerald-500 hover:bg-emerald-50/20"
+            >
+              {newImage ? (
+                <img src={newImage} alt="Preview" className="h-full w-full rounded-2xl object-cover" />
+              ) : (
+                <>
+                  <Camera size={20} className="text-slate-400 group-hover:text-emerald-500 transition" />
+                  <span className="mt-1 text-[9px] font-medium text-slate-500 group-hover:text-emerald-600">Foto</span>
+                </>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Nome da loja</label>
             <input
@@ -123,7 +257,7 @@ export function StorePage({ onClose }: { onClose: () => void }) {
           <div className="flex gap-2 pt-1">
             <button
               type="button"
-              onClick={() => { setIsAdding(false); setFormError(null); }}
+              onClick={() => { setIsAdding(false); setFormError(null); setNewImage(undefined); }}
               className="flex-1 rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200"
             >
               Cancelar
