@@ -97,7 +97,7 @@ export function MapPage() {
     )
   ) as string[];
 
-  const daysOfWeek = ['Todos', 'Seg', 'Ter', 'Quar', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const daysOfWeek = ['Todos', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   // Autofoca o campo Nome assim que o modal abre
   useEffect(() => {
