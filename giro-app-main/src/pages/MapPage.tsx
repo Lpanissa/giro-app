@@ -80,12 +80,19 @@ export function MapPage() {
   // Controla qual cliente está com o menu de navegação (Maps/Waze/Apple Maps) aberto
   const [openNavMenuId, setOpenNavMenuId] = useState<string | null>(null);
 
-  const uniqueStreets = Array.from(
+ const uniqueStreets = Array.from(
     new Set(
       clients
         .map((c) => c.address?.trim())
         .filter(Boolean)
-        .map((addr) => addr!.replace(/,\s*\d+.*$/, '').trim())
+        .map((addr) => {
+          // Remove número, bairro e limpa vírgulas/pontos extras nas pontas
+          return addr!
+            .replace(/,\s*\d+.*$/, '')
+            .replace(/[,.\s]+$/, '')
+            .trim();
+        })
+        .filter(Boolean)
     )
   ) as string[];
 
