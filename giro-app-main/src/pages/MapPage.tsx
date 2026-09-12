@@ -167,6 +167,10 @@ export function MapPage() {
     e.preventDefault();
     if (!name.trim()) return;
 
+    // SALVA IMEDIATAMENTE
+    setShowAddressSuggestions(false);
+    setShowTagSuggestions(false);
+
     const payload = {
       name: name.trim(),
       phone: phone.trim(),
