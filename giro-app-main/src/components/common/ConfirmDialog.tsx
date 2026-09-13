@@ -20,24 +20,33 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onCancel} />
-      <div className="relative w-full max-w-sm rounded-2xl border border-zinc-800 bg-[#18181b] p-6 shadow-2xl animate-scale-in text-slate-100">
-        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
-          <AlertTriangle size={22} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 dark:bg-amber-500/20">
+          <AlertTriangle size={24} />
         </div>
-        <h3 className="text-base font-semibold text-slate-100">{title}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">{message}</p>
-        <div className="mt-5 flex gap-3">
+
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{message}</p>
+
+        <div className="mt-6 flex gap-3">
           <button
+            type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800/60 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-700/80"
+            className="flex-1 rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             Cancelar
           </button>
           <button
+            type="button"
             onClick={onConfirm}
-            className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-medium text-white shadow-md shadow-rose-900/20 transition hover:bg-rose-500"
+            className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-medium text-white shadow-md shadow-red-600/20 transition hover:bg-red-700"
           >
             {confirmLabel}
           </button>
