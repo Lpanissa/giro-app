@@ -80,22 +80,31 @@ export function MapPage() {
   // Controla qual cliente está com o menu de navegação (Maps/Waze/Apple Maps) aberto
   const [openNavMenuId, setOpenNavMenuId] = useState<string | null>(null);
 
- const uniqueStreets = Array.from(
-    new Set(
-      clients
-        .map((c) => c.address?.trim())
-        .filter(Boolean)
-        .map((addr) => {
-          // Remove número, bairro e limpa vírgulas/pontos extras nas pontas
-          return addr!
-            .replace(/,\s*\d+.*$/, '')
-            .replace(/[,.\s]+$/, '')
-            .trim();
-        })
-        .filter(Boolean)
-    )
-  ) as string[];
+const uniqueStreets = Array.from(
+    clients.reduce((map, c) => {
+      const rawAddr = c.address?.trim();
+      if (rawAddr) {
+        // Limpa número e pontuação das pontas para unificar melhor
+        const cleanedAddr = rawAddr
+          .replace(/\s\d+.*/, '')
+          .replace(/[,\.s]+$/, '')
+          .trim();
+        
+        if (cleanedAddr) {
+          // Cria uma chave sem acentos e em minúsculas para agrupar (ex: "ivai" unifica "Ivaí" e "Ivai")
+          const normalizedKey = cleanedAddr
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
 
+          if (!map.has(normalizedKey)) {
+            map.set(normalizedKey, cleanedAddr);
+          }
+        }
+      }
+      return map;
+    }, new Map<string, string>()).values()
+  );
   const uniqueTags = Array.from(
     clients.reduce((map, c) => {
       const rawTag = (c as any).tag?.trim();
