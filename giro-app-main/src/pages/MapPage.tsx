@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Edit2, Search, MapPin, Phone, X, Navigation, Tag as TagIcon } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { SwipeableRow } from '@/components/common/SwipeableRow';import { useToast } from '@/components/common/Toast';
+import { SwipeableRow } from '@/components/common/SwipeableRow';
+import { useToast } from '@/components/common/Toast';
 import { useClients } from '@/hooks/useClients';
 import { useModalBackButton } from '@/hooks/useModalBackButton';
 import type { Client } from '@/types';
@@ -28,7 +29,6 @@ function formatPhoneInput(raw: string): string {
 const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 // Deixa a primeira letra de cada palavra maiúscula, mantendo preposições comuns em minúsculo
-// (ex: "rua antonio bruni" -> "Rua Antonio Bruni", "maria da silva" -> "Maria da Silva")
 const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'dos', 'das', 'e']);
 
 function toTitleCase(input: string): string {
@@ -60,7 +60,6 @@ export function MapPage() {
   const [tag, setTag] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Controla qual campo está em foco, pra mostrar o "x" de limpar só nele
   const [focusedField, setFocusedField] = useState<
     'search' | 'name' | 'phone' | 'address' | 'tag' | null
   >(null);
@@ -69,28 +68,23 @@ export function MapPage() {
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
 
-  // Botão de voltar do celular fecha o modal em vez de sair do app
   useModalBackButton(isModalOpen, () => setIsModalOpen(false));
 
-  // Referências pra controlar foco/cursor dos campos
   const nameInputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
 
-  // Controla qual cliente está com o menu de navegação (Maps/Waze/Apple Maps) aberto
   const [openNavMenuId, setOpenNavMenuId] = useState<string | null>(null);
 
-const uniqueStreets = Array.from(
+  const uniqueStreets = Array.from(
     clients.reduce((map, c) => {
       const rawAddr = c.address?.trim();
       if (rawAddr) {
-        // Limpa número e pontuação das pontas para unificar melhor
         const cleanedAddr = rawAddr
           .replace(/\s\d+.*/, '')
           .replace(/[,.\s]+$/, '')
           .trim();
         
         if (cleanedAddr) {
-          // Cria uma chave sem acentos e em minúsculas para agrupar (ex: "ivai" unifica "Ivaí" e "Ivai")
           const normalizedKey = cleanedAddr
             .toLowerCase()
             .normalize('NFD')
@@ -104,6 +98,7 @@ const uniqueStreets = Array.from(
       return map;
     }, new Map<string, string>()).values()
   );
+
   const uniqueTags = Array.from(
     clients.reduce((map, c) => {
       const rawTag = (c as any).tag?.trim();
@@ -117,9 +112,8 @@ const uniqueStreets = Array.from(
     }, new Map<string, string>()).values()
   );
 
-  const daysOfWeek = ['Todos', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+  const daysOfWeek = ['Todos', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Nenhum'];
 
-  // Autofoca o campo Nome assim que o modal abre
   useEffect(() => {
     if (isModalOpen) {
       const t = setTimeout(() => nameInputRef.current?.focus(), 60);
@@ -127,7 +121,6 @@ const uniqueStreets = Array.from(
     }
   }, [isModalOpen]);
 
-  // ---- Helpers de navegação / contato ----
   const openGoogleMaps = (addr: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
   };
@@ -152,7 +145,6 @@ const uniqueStreets = Array.from(
     setName('');
     setPhone('');
     setAddress('');
-    // Se um filtro de dia específico estiver ativo, já pré-seleciona esse dia
     setRouteDay(selectedDayFilter !== 'Todos' ? selectedDayFilter : '');
     setTag('');
     setFormError(null);
@@ -180,11 +172,9 @@ const uniqueStreets = Array.from(
     e.preventDefault();
     if (!name.trim()) return;
 
-    // SALVA IMEDIATAMENTE
     setShowAddressSuggestions(false);
     setShowTagSuggestions(false);
 
-    // Reaproveita a capitalização da primeira tag cadastrada se já existir uma igual
     const existingTagMatch = clients.find(
       (c: any) => c.tag && c.tag.trim().toLowerCase() === tag.trim().toLowerCase()
     );
@@ -198,8 +188,6 @@ const uniqueStreets = Array.from(
       tag: finalTag || '',
     };
 
-    // Bloqueia cadastro duplicado SÓ se TODOS os campos forem iguais
-    // (nome, telefone, endereço, dia e tag) — qualquer diferença já cadastra normalmente.
     const duplicate = clients.find((c) => {
       if (editingCustomer && c.id === editingCustomer.id) return false;
       const cDay = c.day_of_week || (c as any).routeDay || '';
@@ -254,13 +242,12 @@ const uniqueStreets = Array.from(
     return matchesSearch && matchesDay;
   });
 
-  // Botão "x" reutilizável, só aparece quando o campo está em foco e tem texto
   const ClearButton = ({ onClear }: { onClear: () => void }) => (
     <button
       type="button"
       tabIndex={-1}
       onMouseDown={(e) => {
-        e.preventDefault(); // evita perder o foco antes do clique registrar
+        e.preventDefault();
         onClear();
       }}
       className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition"
@@ -309,7 +296,8 @@ const uniqueStreets = Array.from(
           placeholder="Pesquisar clientes, tags, endereços ou telefones..."
           className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-9 py-2.5 text-sm text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
         />
-{searchTerm && <ClearButton onClear={() => setSearchTerm('')} />}      </div>
+        {searchTerm && <ClearButton onClear={() => setSearchTerm('')} />}
+      </div>
 
       <div className="space-y-3">
         <div className="text-xs font-medium text-slate-500 dark:text-slate-400 px-1">
@@ -321,43 +309,31 @@ const uniqueStreets = Array.from(
             <p className="text-sm">Nenhum cliente encontrado.</p>
           </div>
         ) : (
-          {filteredCustomers.length === 0 ? (
-  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-400 dark:border-slate-700 dark:bg-slate-900/50">
-    <p className="text-sm">Nenhum cliente encontrado.</p>
-  </div>
-) : (
-  filteredCustomers.map((customer) => {
-    const customerDay = customer.day_of_week || (customer as any).routeDay;
-    const customerTag = (customer as any).tag as string | undefined;
+          filteredCustomers.map((customer) => {
+            const customerDay = customer.day_of_week || (customer as any).routeDay;
+            const customerTag = (customer as any).tag as string | undefined;
 
-    return (
-      <SwipeableRow
-        key={customer.id}
-        onDelete={() => setCustomerToDelete(customer)}
-        onEdit={() => setEditingCustomer(customer)}
-      >
-        <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100">{customer.name}</h3>
-              {customerTag && (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200 dark:border-slate-800 dark:text-slate-400">
-                  {customerTag}
-                </span>
-              )}
-              {customerDay && (
-                <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100 dark:border-blue-500/10 dark:text-blue-400">
-                  {customerDay}
-                </span>
-              )}
-            </div>
-            {/* Bolinha de pendência: ativa quando integrarmos com Cobranças (CollectionsPage) */}
-          </div>
-        </div>
-      </SwipeableRow>
-    );
-  })
-)}
+            return (
+              <SwipeableRow
+                key={customer.id}
+                onDelete={() => setCustomerToDelete(customer)}
+                onEdit={() => handleOpenEditModal(customer)}
+              >
+                <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-100">{customer.name}</h3>
+                      {customerTag && (
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200 dark:border-slate-800 dark:text-slate-400">
+                          {customerTag}
+                        </span>
+                      )}
+                      {customerDay && (
+                        <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100 dark:border-blue-500/10 dark:text-blue-400">
+                          {customerDay}
+                        </span>
+                      )}
+                    </div>
 
                     {customer.address && (
                       <div className="relative">
@@ -440,7 +416,7 @@ const uniqueStreets = Array.from(
                     </button>
                   </div>
                 </div>
-              </SwipeToDelete>
+              </SwipeableRow>
             );
           })
         )}
@@ -568,18 +544,18 @@ const uniqueStreets = Array.from(
                   ref={addressInputRef}
                   type="text"
                   value={address}
-                 onChange={(e) => {
-          const input = e.target;
-          const start = input.selectionStart;
-          const end = input.selectionEnd;
+                  onChange={(e) => {
+                    const input = e.target;
+                    const start = input.selectionStart;
+                    const end = input.selectionEnd;
 
-          setAddress(input.value);
-          setShowAddressSuggestions(input.value.trim().length > 0);
+                    setAddress(input.value);
+                    setShowAddressSuggestions(input.value.trim().length > 0);
 
-          requestAnimationFrame(() => {
-            input.setSelectionRange(start, end);
-          });
-        }}
+                    requestAnimationFrame(() => {
+                      input.setSelectionRange(start, end);
+                    });
+                  }}
                   onFocus={() => {
                     setFocusedField('address');
                     if (address.trim().length > 0) setShowAddressSuggestions(true);
@@ -642,7 +618,6 @@ const uniqueStreets = Array.from(
                   value={routeDay}
                   onChange={(e) => {
                     setRouteDay(e.target.value);
-                    // Sai do foco automaticamente assim que escolhe o dia
                     e.target.blur();
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
