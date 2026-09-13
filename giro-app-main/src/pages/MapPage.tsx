@@ -121,18 +121,14 @@ export function MapPage() {
     }
   }, [isModalOpen]);
 
-  const openGoogleMaps = (addr: string) => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
+  const openNavigation = (addr: string) => {
+    const encoded = encodeURIComponent(addr);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const geoUrl = isIOS 
+      ? `http://maps.apple.com/?q=${encoded}` 
+      : `geo:0,0?q=${encoded}`;
+    window.location.href = geoUrl;
   };
-
-  const openWaze = (addr: string) => {
-    window.open(`https://waze.com/ul?q=${encodeURIComponent(addr)}&navigate=yes`, '_blank');
-  };
-
-  const openAppleMaps = (addr: string) => {
-    window.open(`https://maps.apple.com/?q=${encodeURIComponent(addr)}`, '_blank');
-  };
-
   const openWhatsApp = (rawPhone: string) => {
     const cleanPhone = rawPhone.replace(/\D/g, '');
     if (!cleanPhone) return;
