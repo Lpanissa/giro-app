@@ -327,63 +327,16 @@ const openNavigation = (addr: string) => {
                       )}
                     </div>
 
-                    {customer.address && (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenNavMenuId(openNavMenuId === customer.id ? null : customer.id)
-                          }
-                          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 hover:underline text-left dark:text-slate-400 dark:hover:text-blue-400"
-                        >
-                          <MapPin size={14} className="text-slate-400 shrink-0" />
-                          <span className="truncate">{customer.address}</span>
-                        </button>
-
-                        {openNavMenuId === customer.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenNavMenuId(null)} />
-                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  openGoogleMaps(customer.address!);
-                                  setOpenNavMenuId(null);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition dark:text-slate-200 dark:hover:bg-slate-700"
-                              >
-                                <Navigation size={14} className="text-blue-500 shrink-0" />
-                                Abrir no Google Maps
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  openWaze(customer.address!);
-                                  setOpenNavMenuId(null);
-                                }}
-                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition border-t border-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700"
-                              >
-                                <Navigation size={14} className="text-sky-500 shrink-0" />
-                                Abrir no Waze
-                              </button>
-                              {isIOS && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openAppleMaps(customer.address!);
-                                    setOpenNavMenuId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition border-t border-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700"
-                                >
-                                  <Navigation size={14} className="text-slate-500 shrink-0" />
-                                  Abrir no Apple Maps
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
+                   {customer.address && (
+  <button
+    type="button"
+    onClick={() => openNavigation(customer.address!)}
+    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 hover:underline text-left dark:text-slate-400 dark:hover:text-blue-400"
+  >
+    <MapPin size={14} className="text-slate-400 shrink-0" />
+    <span className="truncate">{customer.address}</span>
+  </button>
+)}
 
                     {customer.phone && (
                       <button
