@@ -22,8 +22,8 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
 async function getCroppedDataUrl(
   imageSrc: string,
   cropPixels: Area,
-  maxSize = 400,
-  quality = 0.7,
+  maxSize = 300,
+  quality = 0.6,
 ): Promise<string> {
   const image = await loadImage(imageSrc);
 
