@@ -87,7 +87,7 @@ const uniqueStreets = Array.from(
         // Limpa número e pontuação das pontas para unificar melhor
         const cleanedAddr = rawAddr
           .replace(/\s\d+.*/, '')
-          .replace(/[,\.s]+$/, '')
+          .replace(/[,.\s]+$/, '')
           .trim();
         
         if (cleanedAddr) {
