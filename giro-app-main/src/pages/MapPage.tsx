@@ -121,13 +121,9 @@ export function MapPage() {
     }
   }, [isModalOpen]);
 
-  const openNavigation = (addr: string) => {
+const openNavigation = (addr: string) => {
     const encoded = encodeURIComponent(addr);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const geoUrl = isIOS 
-      ? `http://maps.apple.com/?q=${encoded}` 
-      : `geo:0,0?q=${encoded}`;
-    window.location.href = geoUrl;
+    window.location.href = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
   };
   const openWhatsApp = (rawPhone: string) => {
     const cleanPhone = rawPhone.replace(/\D/g, '');
