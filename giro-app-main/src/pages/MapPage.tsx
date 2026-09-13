@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Edit2, Search, MapPin, Phone, X, Navigation, Tag as TagIcon } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { SwipeToDelete } from '@/components/common/SwipeToDelete';
-import { useToast } from '@/components/common/Toast';
+import { SwipeableRow } from '@/components/common/SwipeableRow';import { useToast } from '@/components/common/Toast';
 import { useClients } from '@/hooks/useClients';
 import { useModalBackButton } from '@/hooks/useModalBackButton';
 import type { Client } from '@/types';
@@ -322,28 +321,43 @@ const uniqueStreets = Array.from(
             <p className="text-sm">Nenhum cliente encontrado.</p>
           </div>
         ) : (
-          filteredCustomers.map((customer) => {
-            const customerDay = customer.day_of_week || (customer as any).routeDay;
-            const customerTag = (customer as any).tag as string | undefined;
+          {filteredCustomers.length === 0 ? (
+  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-400 dark:border-slate-700 dark:bg-slate-900/50">
+    <p className="text-sm">Nenhum cliente encontrado.</p>
+  </div>
+) : (
+  filteredCustomers.map((customer) => {
+    const customerDay = customer.day_of_week || (customer as any).routeDay;
+    const customerTag = (customer as any).tag as string | undefined;
 
-            return (
-              <SwipeToDelete key={customer.id} onDelete={() => setCustomerToDelete(customer)}>
-                <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-semibold text-slate-800 dark:text-slate-100">{customer.name}</h3>
-                      {customerTag && (
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                          {customerTag}
-                        </span>
-                      )}
-                      {customerDay && (
-                        <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
-                          {customerDay}
-                        </span>
-                      )}
-                      {/* Bolinha de pendência: ativa quando integrarmos com Cobranças (CollectionsPage) */}
-                    </div>
+    return (
+      <SwipeableRow
+        key={customer.id}
+        onDelete={() => setCustomerToDelete(customer)}
+        onEdit={() => setEditingCustomer(customer)}
+      >
+        <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100">{customer.name}</h3>
+              {customerTag && (
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200 dark:border-slate-800 dark:text-slate-400">
+                  {customerTag}
+                </span>
+              )}
+              {customerDay && (
+                <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100 dark:border-blue-500/10 dark:text-blue-400">
+                  {customerDay}
+                </span>
+              )}
+            </div>
+            {/* Bolinha de pendência: ativa quando integrarmos com Cobranças (CollectionsPage) */}
+          </div>
+        </div>
+      </SwipeableRow>
+    );
+  })
+)}
 
                     {customer.address && (
                       <div className="relative">
