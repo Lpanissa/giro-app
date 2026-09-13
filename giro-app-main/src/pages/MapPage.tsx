@@ -295,8 +295,7 @@ export function MapPage() {
           placeholder="Pesquisar clientes, tags, endereços ou telefones..."
           className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-9 py-2.5 text-sm text-slate-800 shadow-xs focus:border-blue-500 focus:outline-none dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
         />
-        {focusedField === 'search' && searchTerm && <ClearButton onClear={() => setSearchTerm('')} />}
-      </div>
+{searchTerm && <ClearButton onClear={() => setSearchTerm('')} />}      </div>
 
       <div className="space-y-3">
         <div className="text-xs font-medium text-slate-500 dark:text-slate-400 px-1">
