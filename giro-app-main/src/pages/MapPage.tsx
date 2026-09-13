@@ -176,12 +176,18 @@ export function MapPage() {
     setShowAddressSuggestions(false);
     setShowTagSuggestions(false);
 
+    // Reaproveita a capitalização da primeira tag cadastrada se já existir uma igual
+    const existingTagMatch = clients.find(
+      (c: any) => c.tag && c.tag.trim().toLowerCase() === tag.trim().toLowerCase()
+    );
+    const finalTag = existingTagMatch ? existingTagMatch.tag.trim() : tag.trim();
+    
     const payload = {
       name: name.trim(),
       phone: phone.trim(),
       address: address.trim(),
       day_of_week: routeDay || '',
-      tag: tag.trim() || '',
+      tag: finalTag || '',
     };
 
     // Bloqueia cadastro duplicado SÓ se TODOS os campos forem iguais
