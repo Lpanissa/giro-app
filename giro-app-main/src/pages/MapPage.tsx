@@ -406,15 +406,7 @@ export function MapPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleOpenEditModal(customer)}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                      title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                  </div>
+            
                 </div>
               </SwipeableRow>
             );
