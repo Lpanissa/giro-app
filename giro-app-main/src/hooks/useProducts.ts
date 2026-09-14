@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as db from '@/lib/storage';
+import type { StockRestock } from '@/lib/storage';
 import { useAuth } from '@/lib/useAuth';
 import { useActiveStore } from '@/lib/StoreContext';
 import type { Product } from '@/types';
@@ -8,24 +9,32 @@ export function useProducts() {
   const { user } = useAuth();
   const { activeStoreId } = useActiveStore();
   const [products, setProducts] = useState<Product[]>([]);
+  const [restocks, setRestocks] = useState<StockRestock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !activeStoreId) {
       setProducts([]);
+      setRestocks([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const unsubscribe = db.subscribeProducts(activeStoreId, (list) => {
+    const unsubscribeProducts = db.subscribeProducts(activeStoreId, (list) => {
       setProducts(list);
       setLoading(false);
       setError(null);
     });
+    const unsubscribeRestocks = db.subscribeStockRestocks(activeStoreId, (list) => {
+      setRestocks(list);
+    });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeProducts();
+      unsubscribeRestocks();
+    };
   }, [user, activeStoreId]);
 
   const createProduct = useCallback(async (input: Omit<Product, 'id' | 'created_at'>) => {
@@ -61,10 +70,12 @@ export function useProducts() {
     }
   }, [activeStoreId]);
 
+  // Ajusta a quantidade e grava um registro de reposição (data + quantidade),
+  // usado no popup de detalhes para mostrar a última reposição e o total do mês.
   const adjustQuantity = useCallback(async (id: string, delta: number) => {
     if (!activeStoreId) return 'Nenhuma loja selecionada';
     try {
-      await db.adjustProductQuantity(activeStoreId, id, delta);
+      await db.addProductRestock(activeStoreId, id, delta);
       return null;
     } catch (e) {
       console.error('[useProducts] adjust:', e);
@@ -74,6 +85,7 @@ export function useProducts() {
 
   return {
     products,
+    restocks,
     loading,
     error,
     createProduct,
