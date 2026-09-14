@@ -1,8 +1,10 @@
-import { useState, useRef, useMemo } from 'react';
-import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn, ChevronDown } from 'lucide-react';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn, ChevronDown, Package, TrendingUp, RotateCcw } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useProducts } from '@/hooks/useProducts';
 import { useModalBackButton } from '@/hooks/useModalBackButton';
+import { useActiveStore } from '@/lib/StoreContext';
+import * as db from '@/lib/storage';
 import { formatCurrency } from '@/utils/format';
 
 interface Product {
@@ -14,6 +16,17 @@ interface Product {
   cost: number;
   price: number;
   image?: string;
+}
+
+// Registro mínimo de venda, só com os campos que usamos aqui (o resto do
+// objeto DirectSale vem junto, mas não precisamos declarar tudo).
+interface DirectSaleRecord {
+  id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  unit_cost: number;
+  created_at: string;
 }
 
 // Redimensiona a imagem de forma leve, usando decodificação nativa (createImageBitmap)
@@ -89,8 +102,18 @@ function normalizeText(s: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function isSameMonth(iso: string, ref: Date): boolean {
+  const d = new Date(iso);
+  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 export function InventoryPage() {
-  const { products, createProduct, updateProduct: updateProductInDb, deleteProduct: deleteProductInDb, adjustQuantity } = useProducts();
+  const { products, restocks, createProduct, updateProduct: updateProductInDb, deleteProduct: deleteProductInDb, adjustQuantity } = useProducts();
+  const { activeStoreId } = useActiveStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
 
@@ -117,6 +140,24 @@ export function InventoryPage() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [productToAddStock, setProductToAddStock] = useState<Product | null>(null);
   const [addQuantityValue, setAddQuantityValue] = useState('');
+
+  // Produto selecionado pro popup de detalhes
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  useModalBackButton(!!detailProduct, () => setDetailProduct(null));
+
+  // Vendas diretas da loja, usadas só pra calcular o total vendido no mês por produto
+  const [directSales, setDirectSales] = useState<DirectSaleRecord[]>([]);
+
+  useEffect(() => {
+    if (!activeStoreId) {
+      setDirectSales([]);
+      return;
+    }
+    const unsubscribe = db.subscribeDirectSales(activeStoreId, (list) => {
+      setDirectSales(list as unknown as DirectSaleRecord[]);
+    });
+    return () => unsubscribe();
+  }, [activeStoreId]);
 
   // Controla se a lista de produtos com estoque baixo está expandida ou recolhida
   const [lowStockExpanded, setLowStockExpanded] = useState(false);
@@ -163,6 +204,26 @@ export function InventoryPage() {
       { stockValue: 0, projectedProfit: 0 }
     );
   }, [products]);
+
+  // Estatísticas do produto aberto no popup de detalhes: reposição do mês,
+  // última reposição e total vendido no mês.
+  const detailStats = useMemo(() => {
+    if (!detailProduct) return null;
+    const now = new Date();
+
+    const productRestocks = restocks.filter((r) => r.product_id === detailProduct.id);
+    const monthlyRestockedQty = productRestocks
+      .filter((r) => isSameMonth(r.created_at, now))
+      .reduce((sum, r) => sum + r.quantity, 0);
+    const lastRestock = productRestocks[0] || null; // já vem ordenado do mais recente pro mais antigo
+
+    const productSales = directSales.filter((s) => s.product_id === detailProduct.id);
+    const monthlySales = productSales.filter((s) => isSameMonth(s.created_at, now));
+    const monthlySoldQty = monthlySales.reduce((sum, s) => sum + s.quantity, 0);
+    const monthlySoldValue = monthlySales.reduce((sum, s) => sum + s.unit_price * s.quantity, 0);
+
+    return { monthlyRestockedQty, lastRestock, monthlySoldQty, monthlySoldValue };
+  }, [detailProduct, restocks, directSales]);
 
   const formatCurrencyInput = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -431,11 +492,18 @@ export function InventoryPage() {
           </div>
         ) : (
           filteredProducts.map((product) => (
-            <div key={product.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs">
+            <div
+              key={product.id}
+              onClick={() => setDetailProduct(product)}
+              className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs cursor-pointer transition hover:border-slate-200 hover:shadow-sm active:scale-[0.99]"
+            >
               <div className="flex items-center gap-3">
                 {product.image ? (
                   <div 
-                    onClick={() => setZoomedImage(product.image || null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setZoomedImage(product.image || null);
+                    }}
                     className="relative h-12 w-12 cursor-pointer group"
                   >
                     <img src={product.image} alt={product.name} className="h-12 w-12 rounded-xl object-cover border border-slate-200" />
@@ -468,7 +536,8 @@ export function InventoryPage() {
 
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setProductToAddStock(product);
                     setAddQuantityValue('');
                   }}
@@ -480,14 +549,20 @@ export function InventoryPage() {
 
                 <div className="flex flex-col gap-1">
                   <button 
-                    onClick={() => handleOpenEditModal(product)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenEditModal(product);
+                    }}
                     className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                     title="Editar"
                   >
                     <Edit2 size={16} />
                   </button>
                   <button 
-                    onClick={() => setProductToDelete(product)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProductToDelete(product);
+                    }}
                     className="flex h-8 w-8 items-center justify-center rounded-xl text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition"
                     title="Excluir"
                   >
@@ -521,6 +596,123 @@ export function InventoryPage() {
               <X size={20} />
             </button>
             <img src={zoomedImage} alt="Imagem Ampliada" className="max-h-[85vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl border border-white/10" />
+          </div>
+        </div>
+      )}
+
+      {detailProduct && detailStats && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setDetailProduct(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 text-slate-800 shadow-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                {detailProduct.image ? (
+                  <img src={detailProduct.image} alt={detailProduct.name} className="h-14 w-14 rounded-xl object-cover border border-slate-200" />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-slate-400 border border-slate-200">
+                    <Camera size={22} />
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 leading-tight">{detailProduct.name}</h2>
+                  {detailProduct.category && (
+                    <span className="inline-block mt-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                      {detailProduct.category}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button 
+                onClick={() => setDetailProduct(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:text-slate-800 shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Em estoque</p>
+                <p className="text-base font-bold text-slate-800">{detailProduct.quantity} un.</p>
+                <p className="text-[11px] text-slate-400">Mín. {detailProduct.minQuantity ?? 0}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Custo / Venda</p>
+                <p className="text-sm font-semibold text-slate-800">R$ {(detailProduct.cost || 0).toFixed(2)} → R$ {(detailProduct.price || 0).toFixed(2)}</p>
+                <p className="text-[11px] font-semibold text-emerald-600">
+                  +R$ {((detailProduct.price || 0) - (detailProduct.cost || 0)).toFixed(2)} de lucro/un.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 shrink-0">
+                  <RotateCcw size={16} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-blue-800">Reposto este mês</p>
+                  <p className="text-sm font-bold text-blue-900">{detailStats.monthlyRestockedQty} un.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-200 text-slate-500 shrink-0">
+                  <Package size={16} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-slate-600">Última reposição</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {detailStats.lastRestock
+                      ? `${detailStats.lastRestock.quantity} un. em ${formatDate(detailStats.lastRestock.created_at)}`
+                      : 'Nenhuma reposição registrada'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 shrink-0">
+                  <TrendingUp size={16} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-emerald-800">Vendido este mês</p>
+                  <p className="text-sm font-bold text-emerald-900">
+                    {detailStats.monthlySoldQty} un. — {formatCurrency(detailStats.monthlySoldValue)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const p = detailProduct;
+                  setDetailProduct(null);
+                  handleOpenEditModal(p);
+                }}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = detailProduct;
+                  setDetailProduct(null);
+                  setProductToAddStock(p);
+                  setAddQuantityValue('');
+                }}
+                className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700"
+              >
+                Repor estoque
+              </button>
+            </div>
           </div>
         </div>
       )}
