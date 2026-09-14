@@ -29,6 +29,17 @@ interface DirectSaleRecord {
   created_at: string;
 }
 
+// Ação pendente disparada a partir do popup de detalhes (editar ou repor
+// estoque). Guardamos a intenção em vez de já abrir o próximo modal no
+// mesmo clique, porque fechar o popup de detalhes e abrir outro modal no
+// mesmo tick conflita com o histórico do navegador controlado pelo
+// useModalBackButton (o "voltar" do modal que está fechando acaba
+// desfazendo também a abertura do novo). Abrimos o próximo modal só
+// depois que o popup de detalhes realmente fechar.
+type PendingDetailAction =
+  | { type: 'edit'; product: Product }
+  | { type: 'addStock'; product: Product };
+
 // Redimensiona a imagem de forma leve, usando decodificação nativa (createImageBitmap)
 // quando disponível, pra evitar carregar a foto em resolução total na memória
 // (isso é o que costuma travar/fechar o app em fotos tiradas direto da câmera).
@@ -144,6 +155,10 @@ export function InventoryPage() {
   // Produto selecionado pro popup de detalhes
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   useModalBackButton(!!detailProduct, () => setDetailProduct(null));
+
+  // Ação pendente disparada de dentro do popup de detalhes (ver comentário
+  // no tipo PendingDetailAction acima).
+  const [pendingDetailAction, setPendingDetailAction] = useState<PendingDetailAction | null>(null);
 
   // Vendas diretas da loja, usadas só pra calcular o total vendido no mês por produto
   const [directSales, setDirectSales] = useState<DirectSaleRecord[]>([]);
@@ -273,6 +288,24 @@ export function InventoryPage() {
     setFormError(null);
     setIsModalOpen(true);
   };
+
+  // Só dispara a ação pendente (abrir edição / abrir repor estoque) depois
+  // que o popup de detalhes já fechou de fato (detailProduct === null),
+  // em vez de abrir o próximo modal no mesmo clique que fecha o popup.
+  useEffect(() => {
+    if (!pendingDetailAction || detailProduct) return;
+
+    const action = pendingDetailAction;
+    setPendingDetailAction(null);
+
+    if (action.type === 'edit') {
+      handleOpenEditModal(action.product);
+    } else {
+      setProductToAddStock(action.product);
+      setAddQuantityValue('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDetailAction, detailProduct]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputEl = e.target;
@@ -692,9 +725,8 @@ export function InventoryPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const p = detailProduct;
+                  setPendingDetailAction({ type: 'edit', product: detailProduct });
                   setDetailProduct(null);
-                  handleOpenEditModal(p);
                 }}
                 className="flex-1 rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200"
               >
@@ -703,10 +735,8 @@ export function InventoryPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const p = detailProduct;
+                  setPendingDetailAction({ type: 'addStock', product: detailProduct });
                   setDetailProduct(null);
-                  setProductToAddStock(p);
-                  setAddQuantityValue('');
                 }}
                 className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700"
               >
