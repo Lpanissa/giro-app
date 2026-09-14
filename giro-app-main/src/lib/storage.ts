@@ -180,7 +180,30 @@ export async function deleteProduct(storeId: string, id: string): Promise<void> 
 export async function adjustProductQuantity(storeId: string, id: string, delta: number): Promise<void> {
   await updateDoc(storeDoc(storeId, 'products', id), { quantity: increment(delta) });
 }
+export interface StockRestock {
+  id: string;
+  product_id: string;
+  quantity: number;
+  created_at: string;
+}
 
+export function subscribeStockRestocks(storeId: string, callback: (restocks: StockRestock[]) => void): Unsubscribe {
+  const q = query(storeCollection(storeId, 'stockRestocks'), orderBy('created_at', 'desc'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as StockRestock)));
+  });
+}
+
+// Grava um registro de reposição (usado no popup de detalhes do produto) e
+// já incrementa a quantidade do produto na mesma chamada.
+export async function addProductRestock(storeId: string, productId: string, quantity: number): Promise<void> {
+  await addDoc(storeCollection(storeId, 'stockRestocks'), {
+    product_id: productId,
+    quantity,
+    created_at: nowISO(),
+  });
+  await adjustProductQuantity(storeId, productId, quantity);
+}
 async function deductStock(storeId: string, productId: string, quantity: number): Promise<void> {
   const productRef = storeDoc(storeId, 'products', productId);
   const snap = await getDoc(productRef);
