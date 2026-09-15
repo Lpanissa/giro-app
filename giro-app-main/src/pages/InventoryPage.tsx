@@ -1,3 +1,4 @@
+Aqui está o código completo da página com o botão de limpeza (X) integrado no campo de pesquisa:
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn, ChevronDown, Package, TrendingUp, RotateCcw } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -450,8 +451,18 @@ export function InventoryPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Pesquisar produtos no estoque..."
-            className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-800 shadow-xs focus:border-rose-500 focus:outline-none"
+            className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-10 py-2.5 text-sm text-slate-800 shadow-xs focus:border-rose-500 focus:outline-none"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              title="Limpar pesquisa"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {categories.length > 2 && (
@@ -995,13 +1006,13 @@ export function InventoryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Quantidade atual</label>
-                 <input 
-  type="number"
-  value={quantity}
-  onChange={(e) => setQuantity(e.target.value)}
-  placeholder="0"
-  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-rose-500 focus:bg-white focus:outline-none"
-/>
+                  <input 
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:border-rose-500 focus:bg-white focus:outline-none"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Qtd. mínima de alerta</label>
@@ -1046,3 +1057,4 @@ export function InventoryPage() {
     </div>
   );
 }
+
