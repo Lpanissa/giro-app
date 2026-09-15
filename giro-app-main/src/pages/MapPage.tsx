@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Edit2, Search, MapPin, Phone, X, Navigation, Tag as TagIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, MapPin, Phone, X, Navigation, Tag as TagIcon, Plus, ShoppingBag } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { SwipeableRow } from '@/components/common/SwipeableRow';
 import { useToast } from '@/components/common/Toast';
 import { useClients } from '@/hooks/useClients';
+import { useDirectSales } from '@/hooks/useDirectSales';
 import { useModalBackButton } from '@/hooks/useModalBackButton';
-import type { Client } from '@/types';
+import { formatCurrency, formatDate } from '@/utils/format';
+import type { Client, DirectSale } from '@/types';
 
 // Normaliza texto pra comparação (ignora maiúsculas, acentos e espaços nas pontas)
 function normalize(s: string): string {
@@ -27,8 +29,8 @@ function formatPhoneInput(raw: string): string {
 }
 
 const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isAndroid = typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent);
 
-// Deixa a primeira letra de cada palavra maiúscula, mantendo preposições comuns em minúsculo
 const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'dos', 'das', 'e']);
 
 function toTitleCase(input: string): string {
@@ -43,8 +45,16 @@ function toTitleCase(input: string): string {
     .join(' ');
 }
 
+interface PendingGroup {
+  transactionId: string;
+  total: number;
+  paidAmount: number;
+  dueDate: string | null;
+}
+
 export function MapPage() {
   const { clients, loading, createClient, editClient, deleteClient } = useClients();
+  const { sales, updateTransaction } = useDirectSales();
   const { notify } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,7 +78,16 @@ export function MapPage() {
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
 
+  const [detailClient, setDetailClient] = useState<Client | null>(null);
+  const [showPendingList, setShowPendingList] = useState(false);
+
+  const [selectedPendingGroup, setSelectedPendingGroup] = useState<PendingGroup | null>(null);
+  const [paymentType, setPaymentType] = useState<'total' | 'partial'>('total');
+  const [partialValue, setPartialValue] = useState('');
+
   useModalBackButton(isModalOpen, () => setIsModalOpen(false));
+  useModalBackButton(!!detailClient, () => setDetailClient(null));
+  useModalBackButton(!!selectedPendingGroup, () => setSelectedPendingGroup(null));
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +102,7 @@ export function MapPage() {
           .replace(/\s\d+.*/, '')
           .replace(/[,.\s]+$/, '')
           .trim();
-        
+
         if (cleanedAddr) {
           const normalizedKey = cleanedAddr
             .toLowerCase()
@@ -114,6 +133,59 @@ export function MapPage() {
 
   const daysOfWeek = ['Todos', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Nenhum'];
 
+  const clientInfoMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { lastPurchase: { productName: string; date: string } | null; pendingGroups: PendingGroup[]; pendingTotal: number }
+    >();
+
+    const latestByClient = new Map<string, DirectSale>();
+    for (const sale of sales) {
+      if (!sale.client_id) continue;
+      const current = latestByClient.get(sale.client_id);
+      if (!current || sale.created_at > current.created_at) {
+        latestByClient.set(sale.client_id, sale);
+      }
+    }
+
+    const pendingGroupsByClient = new Map<string, Map<string, PendingGroup>>();
+    for (const sale of sales) {
+      if (!sale.client_id || sale.status !== 'Pendente') continue;
+      if (!pendingGroupsByClient.has(sale.client_id)) {
+        pendingGroupsByClient.set(sale.client_id, new Map());
+      }
+      const groups = pendingGroupsByClient.get(sale.client_id)!;
+      if (!groups.has(sale.transaction_id)) {
+        groups.set(sale.transaction_id, {
+          transactionId: sale.transaction_id,
+          total: 0,
+          paidAmount: (sale as any).paid_amount ?? 0,
+          dueDate: sale.due_date,
+        });
+      }
+      groups.get(sale.transaction_id)!.total += sale.unit_price * sale.quantity;
+    }
+
+    const allClientIds = new Set<string>([...latestByClient.keys(), ...pendingGroupsByClient.keys()]);
+    allClientIds.forEach((clientId) => {
+      const lastSale = latestByClient.get(clientId);
+      const groups = pendingGroupsByClient.get(clientId);
+      const pendingGroups = groups
+        ? Array.from(groups.values()).filter((g) => g.total - g.paidAmount > 0.001)
+        : [];
+
+      map.set(clientId, {
+        lastPurchase: lastSale
+          ? { productName: lastSale.product?.name ?? 'Produto', date: lastSale.created_at }
+          : null,
+        pendingGroups,
+        pendingTotal: pendingGroups.reduce((sum, g) => sum + (g.total - g.paidAmount), 0),
+      });
+    });
+
+    return map;
+  }, [sales]);
+
   useEffect(() => {
     if (isModalOpen) {
       const t = setTimeout(() => nameInputRef.current?.focus(), 60);
@@ -121,10 +193,26 @@ export function MapPage() {
     }
   }, [isModalOpen]);
 
-const openNavigation = (addr: string) => {
-    const encoded = encodeURIComponent(addr);
-    window.location.href = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+  const handleAddressClick = (customerId: string, addr: string) => {
+    if (isAndroid) {
+      window.location.href = `geo:0,0?q=${encodeURIComponent(addr)}`;
+    } else {
+      setOpenNavMenuId(openNavMenuId === customerId ? null : customerId);
+    }
   };
+
+  const openGoogleMaps = (addr: string) => {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, '_blank');
+  };
+
+  const openWaze = (addr: string) => {
+    window.open(`https://waze.com/ul?q=${encodeURIComponent(addr)}&navigate=yes`, '_blank');
+  };
+
+  const openAppleMaps = (addr: string) => {
+    window.open(`https://maps.apple.com/?q=${encodeURIComponent(addr)}`, '_blank');
+  };
+
   const openWhatsApp = (rawPhone: string) => {
     const cleanPhone = rawPhone.replace(/\D/g, '');
     if (!cleanPhone) return;
@@ -171,7 +259,7 @@ const openNavigation = (addr: string) => {
       (c: any) => c.tag && c.tag.trim().toLowerCase() === tag.trim().toLowerCase()
     );
     const finalTag = existingTagMatch ? existingTagMatch.tag.trim() : tag.trim();
-    
+
     const payload = {
       name: name.trim(),
       phone: phone.trim(),
@@ -216,6 +304,54 @@ const openNavigation = (addr: string) => {
       await deleteClient(customerToDelete.id);
       setCustomerToDelete(null);
     }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedPendingGroup) return;
+
+    const currentDate = new Date().toISOString();
+    const currentPaid = selectedPendingGroup.paidAmount || 0;
+    let newPaidAmount = currentPaid;
+    let isFullyPaid = false;
+
+    if (paymentType === 'total') {
+      newPaidAmount = selectedPendingGroup.total;
+      isFullyPaid = true;
+    } else {
+      const parsedPartial = parseFloat(partialValue.replace(',', '.')) || 0;
+      if (parsedPartial <= 0) {
+        notify('Digite um valor válido para o pagamento parcial.', 'error');
+        return;
+      }
+      newPaidAmount = currentPaid + parsedPartial;
+      if (newPaidAmount >= selectedPendingGroup.total) {
+        newPaidAmount = selectedPendingGroup.total;
+        isFullyPaid = true;
+      }
+    }
+
+    const err = await updateTransaction(selectedPendingGroup.transactionId, {
+      status: isFullyPaid ? 'Pago' : 'Pendente',
+      paid_at: isFullyPaid ? currentDate : null,
+      paid_amount: newPaidAmount,
+    } as any);
+
+    if (err) {
+      notify(err, 'error');
+    } else {
+      notify(
+        isFullyPaid
+          ? 'Cobrança recebida com sucesso!'
+          : `Pagamento parcial de ${formatCurrency(newPaidAmount - currentPaid)} registrado!`,
+        'success'
+      );
+      setDetailClient(null);
+    }
+
+    setSelectedPendingGroup(null);
+    setShowPendingList(false);
+    setPaymentType('total');
+    setPartialValue('');
   };
 
   const filteredCustomers = clients.filter((customer) => {
@@ -304,12 +440,18 @@ const openNavigation = (addr: string) => {
           filteredCustomers.map((customer) => {
             const customerDay = customer.day_of_week || (customer as any).routeDay;
             const customerTag = (customer as any).tag as string | undefined;
+            const info = clientInfoMap.get(customer.id);
+            const hasPending = !!info && info.pendingTotal > 0;
 
             return (
               <SwipeableRow
                 key={customer.id}
                 onDelete={() => setCustomerToDelete(customer)}
                 onEdit={() => handleOpenEditModal(customer)}
+                onClick={() => {
+                  setDetailClient(customer);
+                  setShowPendingList(false);
+                }}
               >
                 <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
                   <div className="space-y-1.5 min-w-0">
@@ -325,23 +467,88 @@ const openNavigation = (addr: string) => {
                           {customerDay}
                         </span>
                       )}
+                      {hasPending && (
+                        <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
+                          Pendente
+                        </span>
+                      )}
                     </div>
 
-                   {customer.address && (
-  <button
-    type="button"
-    onClick={() => openNavigation(customer.address!)}
-    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 hover:underline text-left dark:text-slate-400 dark:hover:text-blue-400"
-  >
-    <MapPin size={14} className="text-slate-400 shrink-0" />
-    <span className="truncate">{customer.address}</span>
-  </button>
-)}
+                    {customer.address && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddressClick(customer.id, customer.address!);
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 hover:underline text-left dark:text-slate-400 dark:hover:text-blue-400"
+                        >
+                          <MapPin size={14} className="text-slate-400 shrink-0" />
+                          <span className="truncate">{customer.address}</span>
+                        </button>
+
+                        {openNavMenuId === customer.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenNavMenuId(null);
+                              }}
+                            />
+                            <div className="absolute left-0 top-full mt-1 z-20 min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openGoogleMaps(customer.address!);
+                                  setOpenNavMenuId(null);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition dark:text-slate-200 dark:hover:bg-slate-700"
+                              >
+                                <Navigation size={14} className="text-blue-500 shrink-0" />
+                                Abrir no Google Maps
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openWaze(customer.address!);
+                                  setOpenNavMenuId(null);
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition border-t border-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700"
+                              >
+                                <Navigation size={14} className="text-sky-500 shrink-0" />
+                                Abrir no Waze
+                              </button>
+                              {isIOS && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openAppleMaps(customer.address!);
+                                    setOpenNavMenuId(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-slate-700 hover:bg-slate-50 transition border-t border-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700"
+                                >
+                                  <Navigation size={14} className="text-slate-500 shrink-0" />
+                                  Abrir no Apple Maps
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {customer.phone && (
                       <button
                         type="button"
-                        onClick={() => openWhatsApp(customer.phone!)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openWhatsApp(customer.phone!);
+                        }}
                         className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-green-600 hover:underline text-left dark:text-slate-400 dark:hover:text-green-400"
                         title="Abrir no WhatsApp"
                       >
@@ -350,8 +557,6 @@ const openNavigation = (addr: string) => {
                       </button>
                     )}
                   </div>
-
-            
                 </div>
               </SwipeableRow>
             );
@@ -366,6 +571,181 @@ const openNavigation = (addr: string) => {
       >
         <Plus size={26} />
       </button>
+
+      {detailClient && (() => {
+        const info = clientInfoMap.get(detailClient.id);
+        const hasPending = !!info && info.pendingTotal > 0;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setDetailClient(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{detailClient.name}</h2>
+                <div className="flex items-center gap-2">
+                  {hasPending && (
+                    <button
+                      onClick={() => setShowPendingList((v) => !v)}
+                      className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
+                    >
+                      Pendente
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setDetailClient(null)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:text-slate-800 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4">
+                {info?.lastPurchase ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <ShoppingBag size={16} className="text-slate-400 shrink-0" />
+                    <span>
+                      Última compra: <strong>{info.lastPurchase.productName}</strong> em {formatDate(info.lastPurchase.date)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Nenhuma compra registrada ainda.</p>
+                )}
+
+                {hasPending && (
+                  <p className="text-sm text-amber-700 dark:text-amber-400">
+                    Total pendente: <strong>{formatCurrency(info!.pendingTotal)}</strong>
+                  </p>
+                )}
+
+                {showPendingList && info && info.pendingGroups.length > 0 && (
+                  <ul className="space-y-2 pt-1">
+                    {info.pendingGroups.map((g) => (
+                      <li key={g.transactionId}>
+                        <button
+                          onClick={() => {
+                            setSelectedPendingGroup(g);
+                            setPaymentType('total');
+                            setPartialValue('');
+                          }}
+                          className="w-full flex items-center justify-between rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2.5 text-left text-xs transition hover:bg-amber-50 dark:border-amber-500/20 dark:bg-amber-500/10"
+                        >
+                          <span className="text-slate-600 dark:text-slate-300">
+                            {g.dueDate ? `Vence dia ${formatDate(g.dueDate)}` : 'Sem data de vencimento'}
+                          </span>
+                          <span className="font-semibold text-amber-700 dark:text-amber-400">
+                            {formatCurrency(g.total - g.paidAmount)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {selectedPendingGroup && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedPendingGroup(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Registrar Recebimento</h3>
+              <button
+                onClick={() => setSelectedPendingGroup(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              Cliente: <strong className="text-slate-800 dark:text-slate-100">{detailClient?.name}</strong>
+              <div className="mt-1">
+                Restante a pagar:{' '}
+                <strong className="text-amber-600">
+                  {formatCurrency(selectedPendingGroup.total - (selectedPendingGroup.paidAmount || 0))}
+                </strong>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setPaymentType('total')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition border ${
+                  paymentType === 'total'
+                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Valor Total
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentType('partial')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition border ${
+                  paymentType === 'partial'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Valor Parcial
+              </button>
+            </div>
+
+            {paymentType === 'partial' && (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Quanto foi pago?</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={partialValue}
+                    onChange={(e) => setPartialValue(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 focus:border-slate-400 focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  O valor será abatido e a cobrança continuará pendente até quitar tudo.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setSelectedPendingGroup(null)}
+                className="flex-1 rounded-xl bg-slate-100 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPayment}
+                className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-600 shadow-sm"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div
@@ -401,14 +781,24 @@ const openNavigation = (addr: string) => {
                   ref={nameInputRef}
                   type="text"
                   value={name}
-                  onChange={(e) => setName(toTitleCase(e.target.value))}
+                  onChange={(e) => {
+                    const input = e.target;
+                    const start = input.selectionStart;
+                    const end = input.selectionEnd;
+
+                    setName(toTitleCase(input.value));
+
+                    requestAnimationFrame(() => {
+                      input.setSelectionRange(start, end);
+                    });
+                  }}
                   onFocus={() => setFocusedField('name')}
                   onBlur={() => setTimeout(() => setFocusedField((f) => (f === 'name' ? null : f)), 120)}
                   placeholder="Ex: Nome do cliente"
                   required
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 pr-9 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-800 dark:placeholder-slate-500"
                 />
-                {focusedField === 'name' && name && <ClearButton onClear={() => setName('')} />}
+                {name && <ClearButton onClear={() => setName('')} />}
               </div>
 
               <div className="relative">
@@ -435,7 +825,7 @@ const openNavigation = (addr: string) => {
                   placeholder="Ex: Brechó"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 pr-9 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-800 dark:placeholder-slate-500"
                 />
-                {focusedField === 'tag' && tag && <ClearButton onClear={() => setTag('')} />}
+                {tag && <ClearButton onClear={() => setTag('')} />}
 
                 {showTagSuggestions && tag.trim().length > 0 && uniqueTags.length > 0 && (
                   <div className="absolute left-0 right-0 top-full mt-1 z-30 max-h-32 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
@@ -472,7 +862,7 @@ const openNavigation = (addr: string) => {
                   placeholder="(11) 99999-9999"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 pr-9 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-800 dark:placeholder-slate-500"
                 />
-                {focusedField === 'phone' && phone && <ClearButton onClear={() => setPhone('')} />}
+                {phone && <ClearButton onClear={() => setPhone('')} />}
               </div>
 
               <div className="relative">
@@ -506,7 +896,7 @@ const openNavigation = (addr: string) => {
                   placeholder="Rua, número, Bairro"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 pr-9 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-800 dark:placeholder-slate-500"
                 />
-                {focusedField === 'address' && address && (
+                {address && (
                   <ClearButton
                     onClear={() => {
                       setAddress('');
