@@ -5,14 +5,18 @@ interface SwipeableRowProps {
   children: React.ReactNode;
   onDelete: () => void;
   onEdit: () => void;
+  // Opcional: toque simples no card (sem arrastar) — abre um modal de detalhes.
+  // Só dispara se não houve um arraste de verdade.
+  onClick?: () => void;
 }
 
-export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onDelete, onEdit }) => {
+export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onDelete, onEdit, onClick }) => {
   const [offset, setOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const isHorizontalSwipeRef = useRef<boolean | null>(null);
+  const hasDraggedRef = useRef(false);
 
   const MAX_SWIPE = 100; // Limite de pixels para o arraste
 
@@ -23,6 +27,7 @@ export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onDelete, 
     startXRef.current = clientX;
     startYRef.current = clientY;
     isHorizontalSwipeRef.current = null;
+    hasDraggedRef.current = false;
     setIsSwiping(true);
   };
 
@@ -50,6 +55,8 @@ export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onDelete, 
       // Trava o comportamento padrão para evitar o scroll da tela enquanto arrasta para o lado
       if (e.cancelable) e.preventDefault();
 
+      if (Math.abs(diffX) > 5) hasDraggedRef.current = true;
+
       // Limita o arraste entre -MAX_SWIPE e +MAX_SWIPE
       if (diffX > 0) {
         setOffset(Math.min(diffX, MAX_SWIPE)); // Arraste para a direita (Editar)
@@ -72,6 +79,11 @@ export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onDelete, 
     // Retorna a linha para a posição original com animação
     setOffset(0);
     isHorizontalSwipeRef.current = null;
+  };
+
+  const handleClick = () => {
+    if (hasDraggedRef.current) return; // veio de um arraste, não é um toque de verdade
+    onClick?.();
   };
 
   return (
@@ -106,6 +118,7 @@ export const SwipeableRow: React.FC<SwipeableRowProps> = ({ children, onDelete, 
         onMouseMove={handleTouchMove}
         onMouseUp={handleTouchEnd}
         onMouseLeave={handleTouchEnd}
+        onClick={handleClick}
       >
         {children}
       </div>
