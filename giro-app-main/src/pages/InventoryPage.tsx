@@ -1,4 +1,3 @@
-Aqui está o código completo da página com o botão de limpeza (X) integrado no campo de pesquisa:
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { Plus, Trash2, Edit2, AlertTriangle, Camera, X, Search, Image as ImageIcon, ZoomIn, ChevronDown, Package, TrendingUp, RotateCcw } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
